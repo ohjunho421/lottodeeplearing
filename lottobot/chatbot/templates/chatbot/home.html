@@ -1,0 +1,196 @@
+<!-- chatbot/templates/chatbot/home.html -->
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>로또 추천 챗봇</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            font-family: 'Arial', sans-serif;
+            background-color: #f5f5f5;
+        }
+
+        .chat-container {
+            max-width: 600px;
+            margin: 0 auto;
+            background-color: white;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+        }
+
+        .chat-header {
+            background-color: #007bff;
+            color: white;
+            padding: 20px;
+            text-align: center;
+            font-size: 24px;
+            font-weight: bold;
+        }
+
+        .chat-messages {
+            padding: 20px;
+            max-height: 500px;
+            overflow-y: auto;
+        }
+
+        .message {
+            margin-bottom: 15px;
+            white-space: pre-line;
+        }
+
+        .user-message {
+            text-align: right;
+        }
+
+        .bot-message {
+            text-align: left;
+        }
+
+        .message-content {
+            display: inline-block;
+            padding: 10px 15px;
+            border-radius: 20px;
+            max-width: 70%;
+            word-wrap: break-word;
+        }
+
+        .user-message .message-content {
+            background-color: #007bff;
+            color: white;
+        }
+
+        .bot-message .message-content {
+            background-color: #e9ecef;
+            color: black;
+        }
+
+        .input-container {
+            padding: 20px;
+            border-top: 1px solid #ddd;
+            display: flex;
+            gap: 10px;
+        }
+
+        #messageInput {
+            flex: 1;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 16px;
+        }
+
+        #sendButton {
+            padding: 10px 20px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+
+        #sendButton:hover {
+            background-color: #0056b3;
+        }
+
+        #sendButton:disabled {
+            background-color: #ccc;
+            cursor: not-allowed;
+        }
+    </style>
+</head>
+<body>
+    <div class="chat-container">
+        <div class="chat-header">
+            로또 추천 챗봇
+        </div>
+        <div class="chat-messages" id="chatMessages">
+            <!-- 메시지들이 여기에 추가됩니다 -->
+        </div>
+        <div class="input-container">
+            <input type="text" id="messageInput" placeholder="메시지를 입력하세요..." autofocus>
+            <button id="sendButton">전송</button>
+        </div>
+    </div>
+
+    <script>
+        let csrfToken = '';
+        
+        // CSRF 토큰 가져오기
+        fetch('/api/chatbot/csrf/')
+            .then(response => response.json())
+            .then(data => {
+                csrfToken = data.csrfToken;
+            });
+
+        const chatMessages = document.getElementById('chatMessages');
+        const messageInput = document.getElementById('messageInput');
+        const sendButton = document.getElementById('sendButton');
+
+        // 초기 메시지 표시
+        displayBotMessage('안녕하세요! 로또 번호 추천 챗봇입니다.\n\n' +
+                         '두 가지 전략으로 번호를 추천해드릴 수 있습니다:\n' +
+                         '1. 자주 당첨된 번호 기반 추천\n' +
+                         '2. 잠재력 있는 번호 기반 추천\n\n' +
+                         '원하시는 전략을 선택해주세요!');
+
+        function displayUserMessage(message) {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = 'message user-message';
+            messageDiv.innerHTML = `<div class="message-content">${message}</div>`;
+            chatMessages.appendChild(messageDiv);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+
+        function displayBotMessage(message) {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = 'message bot-message';
+            messageDiv.innerHTML = `<div class="message-content">${message}</div>`;
+            chatMessages.appendChild(messageDiv);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+
+        async function sendMessage() {
+            const message = messageInput.value.trim();
+            if (!message) return;
+
+            // 사용자 메시지 표시
+            displayUserMessage(message);
+            messageInput.value = '';
+            sendButton.disabled = true;
+
+            try {
+                const response = await fetch('/api/chatbot/chat/', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': csrfToken
+                    },
+                    body: JSON.stringify({ message: message })
+                });
+
+                const data = await response.json();
+                displayBotMessage(data.response);
+            } catch (error) {
+                displayBotMessage('죄송합니다. 오류가 발생했습니다. 다시 시도해주세요.');
+                console.error('Error:', error);
+            }
+
+            sendButton.disabled = false;
+            messageInput.focus();
+        }
+
+        sendButton.addEventListener('click', sendMessage);
+        messageInput.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                sendMessage();
+            }
+        });
+    </script>
+</body>
+</html>

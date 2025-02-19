@@ -1,0 +1,39 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="min-h-screen flex items-center justify-center bg-blue-100">
+    <div class="bg-white p-8 rounded-lg shadow-lg w-96">
+        <h1 class="text-4xl text-center mb-8">Lotto bot<br>Login</h1>
+        
+        <form method="post" class="space-y-6">
+            {% csrf_token %}
+            
+            <div class="space-y-2">
+                <label class="block text-xl">id</label>
+                <input type="text" name="username" 
+                       class="w-full p-2 border rounded focus:outline-none focus:border-blue-500"
+                       required>
+            </div>
+            
+            <div class="space-y-2">
+                <label class="block text-xl">pw</label>
+                <input type="password" name="password" 
+                       class="w-full p-2 border rounded focus:outline-none focus:border-blue-500"
+                       required>
+            </div>
+            
+            <div class="space-y-4">
+                <button type="submit" 
+                        class="w-full p-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition">
+                    로그인
+                </button>
+                
+                <a href="{% url 'accounts:register' %}" 
+                   class="block w-full p-2 text-center bg-gray-200 rounded hover:bg-gray-300 transition">
+                    회원가입
+                </a>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

@@ -1,25 +1,24 @@
-"""
-URL configuration for lottobot project.
-
-The `urlpatterns` list routes URLs to views. For more information please see:
-    https://docs.djangoproject.com/en/4.2/topics/http/urls/
-Examples:
-Function views
-    1. Add an import:  from my_app import views
-    2. Add a URL to urlpatterns:  path('', views.home, name='home')
-Class-based views
-    1. Add an import:  from other_app.views import Home
-    2. Add a URL to urlpatterns:  path('', Home.as_view(), name='home')
-Including another URLconf
-    1. Import the include() function: from django.urls import include, path
-    2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
-"""
+# lottobot/urls.py
 
 from django.contrib import admin
 from django.urls import path, include
+from django.conf import settings
+from django.conf.urls.static import static
+from django.contrib.auth.decorators import login_required
+from django.contrib.auth import views as auth_views
+from . import views
 
 urlpatterns = [
-    path("admin/", admin.site.urls),
-    path("accounts/", include("accounts.urls")),
-    path("chatbot/", include("chatbot.urls")),
-]
+    path('admin/', admin.site.urls),
+    # 로그인/로그아웃 URL
+    path('', auth_views.LoginView.as_view(template_name='registration/login.html'), name='login'),
+    path('logout/', auth_views.LogoutView.as_view(next_page='login'), name='logout'),  # 로그아웃 URL 추가
+    
+    # accounts 앱 URLs
+    path('accounts/', include('accounts.urls', namespace='accounts')),
+    
+    # 메인 페이지와 다른 기능들
+    path('main/', login_required(views.main_view), name='main'),
+    path('chatbot/', include('chatbot.urls')),
+    path('mypage/', login_required(views.mypage_view), name='mypage'),
+] + static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)

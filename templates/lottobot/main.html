@@ -1,0 +1,48 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="p-8">
+    <h1 class="text-3xl font-bold mb-8">로또 번호 추천 서비스</h1>
+    
+    {% if latest_numbers %}
+    <div class="bg-white rounded-lg shadow-lg p-6 mb-8 max-w-3xl">
+        <h2 class="text-xl font-semibold mb-4">최신 당첨 번호</h2>
+        <div class="mb-2">
+            <span class="text-gray-600">{{ latest_numbers.round }}회</span>
+            <span class="text-gray-600 ml-2">({{ latest_numbers.date }})</span>
+        </div>
+        <div class="flex gap-2 items-center">
+            <div class="flex gap-2">
+                {% for number in latest_numbers.numbers %}
+                <div class="w-12 h-12 rounded-full bg-blue-500 text-white flex items-center justify-center font-bold text-lg">
+                    {{ number }}
+                </div>
+                {% endfor %}
+            </div>
+            <div class="text-gray-400 mx-2">+</div>
+            <div class="w-12 h-12 rounded-full bg-yellow-500 text-white flex items-center justify-center font-bold text-lg">
+                {{ latest_numbers.bonus }}
+            </div>
+        </div>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-3xl">
+        <a href="{% url 'chatbot:chat' %}" 
+           class="bg-blue-500 text-white rounded-lg p-6 hover:bg-blue-600 transition">
+            <h3 class="text-xl font-semibold mb-2">번호 추천받기</h3>
+            <p>AI 챗봇을 통해 로또 번호를 추천받아보세요</p>
+        </a>
+        
+        <a href="{% url 'mypage' %}" 
+           class="bg-green-500 text-white rounded-lg p-6 hover:bg-green-600 transition">
+            <h3 class="text-xl font-semibold mb-2">추천 번호 히스토리</h3>
+            <p>이전에 추천받은 번호들을 확인해보세요</p>
+        </a>
+    </div>
+    {% else %}
+    <div class="bg-yellow-100 border-l-4 border-yellow-500 p-4 max-w-3xl">
+        <p class="text-yellow-700">현재 최신 당첨 번호를 불러올 수 없습니다.</p>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

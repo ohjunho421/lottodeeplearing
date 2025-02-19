@@ -1,0 +1,65 @@
+<!-- chatbot/templates/chatbot/status.html -->
+<!DOCTYPE html>
+<html>
+<head>
+    <title>로또 데이터 상태</title>
+    <style>
+        .status-box {
+            margin: 20px;
+            padding: 20px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+        }
+        .status-item {
+            margin: 10px 0;
+        }
+        .success {
+            color: green;
+        }
+        .error {
+            color: red;
+        }
+    </style>
+</head>
+<body>
+    <div class="status-box">
+        <h2>로또 데이터 상태</h2>
+        
+        {% if error %}
+            <div class="status-item error">
+                오류 발생: {{ error }}
+            </div>
+        {% else %}
+            {% if data_exists %}
+                <div class="status-item">
+                    <strong>데이터 파일:</strong> 존재함
+                </div>
+                <div class="status-item">
+                    <strong>전체 기록 수:</strong> {{ total_records }}
+                </div>
+                <div class="status-item">
+                    <strong>최신 회차:</strong> {{ latest_draw }}
+                </div>
+                <div class="status-item">
+                    <strong>마지막 추첨일:</strong> {{ latest_date }}
+                </div>
+                <div class="status-item">
+                    <strong>파일 업데이트:</strong> {{ file_updated }}
+                </div>
+                <div class="status-item">
+                    <strong>머신러닝 모델 상태:</strong>
+                    {% if model_status %}
+                        <span class="success">정상</span>
+                    {% else %}
+                        <span class="error">오류</span>
+                    {% endif %}
+                </div>
+            {% else %}
+                <div class="status-item error">
+                    데이터 파일이 존재하지 않습니다.
+                </div>
+            {% endif %}
+        {% endif %}
+    </div>
+</body>
+</html>

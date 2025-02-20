@@ -19,6 +19,7 @@ urlpatterns = [
     
     # 메인 페이지와 다른 기능들
     path('main/', login_required(views.main_view), name='main'),
-    path('chatbot/', include('chatbot.urls')),
+    path('chatbot/', include('chatbot.urls')),  # chatbot 기본 URL
+    path('api/', include('chatbot.urls')),  # API URL 추가
     path('mypage/', login_required(views.mypage_view), name='mypage'),
 ] + static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)

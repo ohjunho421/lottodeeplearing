@@ -124,7 +124,7 @@ class LottoDataCollector:
             return date_text
 
     def update_latest_data(self):
-        """최신 데이터 업데이트 (CSV 형식을 첫번째 파일과 동일하게 통일)"""
+        """최신 데이터 업데이트: 기존 CSV 파일 형식을 그대로 유지하며 새 데이터를 추가 (기존 데이터 보존)"""
         try:
             logger.info("최신 데이터 업데이트 시작")
             response = requests.get(self.base_url)
@@ -134,7 +134,7 @@ class LottoDataCollector:
 
             soup = BeautifulSoup(response.text, 'html.parser')
             
-            # 당첨번호 추출 (ball_645 클래스 사용)
+            # 당첨번호 추출
             win_numbers = soup.select('div.num.win span.ball_645')
             if not win_numbers or len(win_numbers) != 6:
                 logger.error("당첨번호를 찾을 수 없습니다")
@@ -152,86 +152,59 @@ class LottoDataCollector:
                 logger.error("회차 정보를 찾을 수 없습니다")
                 return False
 
-            # 추첨일 추출
+            # 추첨일 추출 (CSV 파일의 컬럼은 "날짜"입니다)
             draw_date = soup.select('p.desc')
             if not draw_date:
                 logger.error("추첨일을 찾을 수 없습니다")
                 return False
 
             try:
+                # 데이터 파싱
                 numbers = [int(n.text.strip()) for n in win_numbers]
                 bonus = int(bonus_ball[0].text.strip())
                 draw_no = int(''.join(filter(str.isdigit, draw_result[0].text)))
                 date_text = draw_date[0].text.strip()
-                # 괄호 안의 날짜를 추출하여 전처리
-                draw_date_extracted = date_text[date_text.find('(')+1:date_text.find(')')]
-                draw_date_formatted = self._parse_date(draw_date_extracted)
-
-                logger.info(f"추출된 데이터: 회차={draw_no}, 번호={numbers}, 보너스={bonus}, 날짜={draw_date_formatted}")
+                # 예: "2025년 02월 15일 추첨"에서 괄호 안의 부분 추출 → "2025년 02월 15일"
+                drawn_date = date_text[date_text.find('(')+1:date_text.find(')')]
+                # YYYY.MM.DD 형식으로 변환 (예: "2025년 02월 15일" → "2025.02.15")
+                drawn_date_formatted = self._parse_date(drawn_date)
+                logger.info(f"추출된 데이터: 회차={draw_no}, 번호={numbers}, 보너스={bonus}, 날짜={drawn_date_formatted}")
             except Exception as e:
                 logger.error(f"데이터 파싱 오류: {str(e)}")
                 return False
 
-            # 기존 CSV 파일 로드 (없으면 모든 컬럼을 포함한 빈 DataFrame 생성)
-            if os.path.exists(self.data_file):
-                df = pd.read_csv(self.data_file)
-            else:
-                df = pd.DataFrame(columns=[
-                    '회차', '추첨일', '1', '2', '3', '4', '5', '6', '보너스',
-                    '날짜', '번호1', '번호2', '번호3', '번호4', '번호5', '번호6'
-                ])
+            # 기존 CSV 파일 로드 (파일은 반드시 존재하며, 형식은 아래와 같음)
+            # "회차, 날짜, 번호1, 번호2, 번호3, 번호4, 번호5, 번호6, 보너스"
+            df = pd.read_csv(self.data_file)
 
-            # 신규 회차가 존재하지 않을 때만 추가
-            if draw_no not in df['회차'].values:
-                new_row = pd.DataFrame([{
-                    '회차': draw_no,
-                    '추첨일': draw_date_formatted,
-                    '1': numbers[0],
-                    '2': numbers[1],
-                    '3': numbers[2],
-                    '4': numbers[3],
-                    '5': numbers[4],
-                    '6': numbers[5],
-                    '보너스': bonus
-                }])
-                
-                # 신규 데이터는 원본 형식(회차,추첨일,1~6,보너스)만 가지고 있음.
-                # 기존 데이터와 병합
-                updated_df = pd.concat([new_row, df], ignore_index=True)
-                
-                # **형식 통일 작업 시작**
-                # 1. '추첨일'이 비어있는 행은 '날짜' 컬럼 값으로 채우기
-                if '날짜' in updated_df.columns:
-                    updated_df['추첨일'] = updated_df['추첨일'].fillna(updated_df['날짜'])
-                
-                # 2. 번호 컬럼(1~6)이 비어있는 경우 기존 '번호1'~'번호6' 컬럼 값을 채우기
-                old_number_cols = ['번호1', '번호2', '번호3', '번호4', '번호5', '번호6']
-                new_number_cols = ['1', '2', '3', '4', '5', '6']
-                for new_col, old_col in zip(new_number_cols, old_number_cols):
-                    if old_col in updated_df.columns:
-                        updated_df[new_col] = updated_df[new_col].fillna(updated_df[old_col])
-                
-                # 3. 최종적으로 필요한 컬럼만 선택: 회차, 추첨일, 1,2,3,4,5,6,보너스
-                final_columns = ['회차', '추첨일'] + new_number_cols + ['보너스']
-                updated_df = updated_df[final_columns]
-                
-                # 4. 번호 컬럼들을 숫자형으로 변환 (필요 시 소수점 제거)
-                for col in new_number_cols + ['보너스']:
-                    updated_df[col] = pd.to_numeric(updated_df[col], errors='coerce')
-                # **형식 통일 작업 끝**
-                
-                os.makedirs(os.path.dirname(self.data_file), exist_ok=True)
-                updated_df.to_csv(self.data_file, index=False)
-                logger.info(f"신규 회차 {draw_no} 추가 및 형식 재정렬 완료")
-                return True
+            # 중복 회차 체크
+            if draw_no in df['회차'].values:
+                logger.info(f"회차 {draw_no}는 이미 존재함")
+                return False
+
+            # 새 데이터 행 생성 (기존 CSV의 컬럼 이름에 맞게)
+            new_row = pd.DataFrame([{
+                '회차': draw_no,
+                '날짜': drawn_date_formatted,
+                '번호1': numbers[0],
+                '번호2': numbers[1],
+                '번호3': numbers[2],
+                '번호4': numbers[3],
+                '번호5': numbers[4],
+                '번호6': numbers[5],
+                '보너스': bonus
+            }])
             
-            logger.info(f"회차 {draw_no}는 이미 존재함")
-            return False
+            # 기존 데이터와 새 행을 단순히 합치고 회차 기준 내림차순 정렬
+            updated_df = pd.concat([df, new_row], ignore_index=True)
+            updated_df = updated_df.sort_values('회차', ascending=False).reset_index(drop=True)
+            updated_df.to_csv(self.data_file, index=False)
+            logger.info(f"신규 회차 {draw_no} 추가 및 기존 데이터 유지 (총 {len(updated_df)}개의 행)")
+            return True
 
         except Exception as e:
             logger.error(f"데이터 업데이트 중 오류 발생: {str(e)}")
             return False
-
 
 
 class LottoPredictor:
@@ -255,7 +228,7 @@ class LottoPredictor:
                 recent_numbers = []
                 for j in range(5):
                     row = df.iloc[i + j]
-                    numbers = [row[str(k)] for k in range(1, 7)]  # 1~6번 번호
+                    numbers = [row[f"번호{k}"] for k in range(1, 7)] # 1~6번 번호
                     numbers.append(row['보너스'])  # 보너스 번호 추가
                     recent_numbers.extend(numbers)
                 features.append(recent_numbers)
@@ -325,7 +298,7 @@ class LottoPredictor:
 
             y = []
             for i in range(len(df) - 5):
-                next_number = df.iloc[i]['1']
+                next_number = df.iloc[i]['번호1']
                 y.append(next_number)
             y = np.array(y)
 
@@ -398,7 +371,7 @@ def get_recommendation(strategy_counts):
         
         # 번호별 출현 빈도 분석
         all_numbers = []
-        for col in ['1', '2', '3', '4', '5', '6']:
+        for col in ['번호1', '번호2', '번호3', '번호4', '번호5', '번호6']:
             all_numbers.extend(df[col].tolist())
         number_counts = pd.Series(all_numbers).value_counts()
         

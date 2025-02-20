@@ -1,5 +1,4 @@
 # views.py
-
 import json
 import logging
 import random
@@ -11,7 +10,17 @@ from django.views.decorators.csrf import csrf_exempt
 from django.utils.decorators import method_decorator
 from django.middleware.csrf import get_token
 from django.conf import settings
+from django.contrib.auth.decorators import login_required  # 추가
 from chatbot.services import get_recommendation, check_data_status
+from .models import Recommendation  # 추가: Recommendation 모델 import
+from rest_framework.views import APIView  # 추가
+from rest_framework.response import Response  # 추가
+from rest_framework.permissions import IsAuthenticated  # 추가
+from rest_framework import status  # 추가
+from chatbot.services import get_recommendation, check_data_status
+from .models import Recommendation, LottoDraw  # LottoDraw 추가
+from .serializers import RecommendationSerializer  # 추가
+
 
 logger = logging.getLogger(__name__)
 
@@ -217,9 +226,28 @@ class ChatAPIView(View):
                     if not recommendations:
                         return JsonResponse({'response': '번호 추천 중 오류가 발생했습니다.'}, status=400)
 
-                    # 번호 추천 결과만 반환
-                    response_message = self._format_recommendations(recommendations)
-                    return JsonResponse({'response': response_message}, status=200)
+                    #사용자 인증확인 추가
+                    if recommendations and request.user.is_authenticated:
+                        try:
+                            # 추천 번호 저장
+                            for strategy, numbers in recommendations:
+                                Recommendation.objects.create(
+                                    user=request.user,
+                                    strategy=strategy,
+                                    numbers=','.join(map(str, sorted(numbers))),
+                                    is_checked=False, #당첨 여부확인, 아직확인안함
+                                    is_won=False, #당첨 여부표시, 아직 모름
+                                    draw_round=None, #비교할 추첨회차, 아직 정보없음 
+                                    draw_date=None #비교할 추첨일, 아직정보없음
+                                )
+                            
+                            # 번호 추천 결과 반환
+                            response_message = self._format_recommendations(recommendations)
+                            return JsonResponse({'response': response_message}, status=200)
+                            
+                        except Exception as e:
+                            logger.error(f"Error saving recommendations: {str(e)}")
+                            return JsonResponse({'response': '번호 저장 중 오류가 발생했습니다.'}, status=400)
                     
                 except Exception as e:
                     logger.error(f"Error in processing strategy: {str(e)}")
@@ -243,3 +271,50 @@ class ChatAPIView(View):
             return JsonResponse({
                 'response': '서버 에러가 발생했습니다. 잠시 후 다시 시도해주세요.'
             }, status=500)
+        
+# ChatAPIView 클래스 다음에 추가
+class HistoryAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+    
+    def get(self, request):
+        try:
+            # 최신 당첨 정보 가져오기
+            latest_draw = LottoDraw.objects.order_by('-round_no').first()
+            
+            # 사용자의 추천 기록 가져오기
+            recommendations = Recommendation.objects.filter(user=request.user).order_by('-recommendation_date')
+            
+            if latest_draw:
+                latest_numbers = list(map(int, latest_draw.winning_numbers.split(',')))
+                
+                # 확인하지 않은 추천번호들 업데이트
+                for rec in recommendations:
+                    if not rec.is_checked:
+                        rec_numbers = list(map(int, rec.numbers.split(',')))
+                        matched = len(set(rec_numbers) & set(latest_numbers))
+                        
+                        rec.is_won = matched >= 3 # 3개 이상 맞으면 당첨
+                        rec.is_checked = True    # 확인 완료 표시
+                        rec.draw_round = latest_draw.round_no # 확인한 회차 저장
+                        rec.draw_date = latest_draw.draw_date # 확인한 날짜 저장
+                        rec.save()
+
+            serializer = RecommendationSerializer(recommendations, many=True)
+            
+            response_data = {
+                'recommendations': serializer.data,
+                'latest_draw': {
+                    'round': latest_draw.round_no if latest_draw else None,
+                    'date': latest_draw.draw_date if latest_draw else None,
+                    'numbers': latest_draw.winning_numbers if latest_draw else None,
+                    'bonus': latest_draw.bonus_number if latest_draw else None
+                } if latest_draw else None
+            }
+            
+            return Response(response_data, status=status.HTTP_200_OK)
+            
+        except Exception as e:
+            return Response(
+                {'error': str(e)},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )

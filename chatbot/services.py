@@ -21,7 +21,13 @@ class LottoDataCollector:
         self.data_file = settings.LOTTO_DATA_FILE
 
     def collect_initial_data(self):
-        """초기 데이터 수집"""
+        """초기 데이터 수집 (파일이 있으면 최신 데이터만 읽어옴)"""
+        if os.path.exists(self.data_file):
+            df = pd.read_csv(self.data_file)
+            logger.info("기존 데이터 파일 발견. 최신 데이터만 읽어옵니다.")
+            return df.iloc[[0]]  # 최신 데이터(첫 번째 행)를 반환
+
+        # 파일이 없을 경우에만 새로 수집하여 저장
         try:
             logger.info("초기 데이터 수집 시작")
             response = requests.get(self.base_url)
@@ -56,16 +62,13 @@ class LottoDataCollector:
                 return None
 
             try:
-                # 데이터 파싱
                 numbers = [int(n.text.strip()) for n in win_numbers]
                 bonus = int(bonus_ball[0].text.strip())
                 draw_no = int(''.join(filter(str.isdigit, draw_result[0].text)))
                 date_text = draw_date[0].text.strip()
                 drawn_date = date_text[date_text.find('(')+1:date_text.find(')')]
-
                 logger.info(f"추출된 데이터: 회차={draw_no}, 번호={numbers}, 보너스={bonus}, 날짜={drawn_date}")
 
-                # 데이터프레임 생성
                 df = pd.DataFrame([{
                     '회차': draw_no,
                     '추첨일': drawn_date,
@@ -78,7 +81,6 @@ class LottoDataCollector:
                     '보너스': bonus
                 }])
 
-                # 데이터 저장
                 os.makedirs(os.path.dirname(self.data_file), exist_ok=True)
                 df.to_csv(self.data_file, index=False)
                 logger.info(f"데이터 파일 저장 완료: {self.data_file}")
@@ -86,24 +88,6 @@ class LottoDataCollector:
 
             except Exception as e:
                 logger.error(f"데이터 파싱 오류: {str(e)}")
-                return None
-
-        except Exception as e:
-            logger.error(f"초기 데이터 수집 중 오류 발생: {str(e)}")
-            return None
-
-            if all_data:
-                df = pd.DataFrame(all_data)
-                df = df.sort_values('회차', ascending=False)
-                logger.info(f"데이터프레임 생성 완료. 총 {len(df)}개의 데이터")
-                
-                # 데이터 저장 전에 디렉토리 확인
-                os.makedirs(os.path.dirname(self.data_file), exist_ok=True)
-                df.to_csv(self.data_file, index=False)
-                logger.info(f"데이터 파일 저장 완료: {self.data_file}")
-                return df
-            else:
-                logger.error("수집된 데이터가 없습니다.")
                 return None
 
         except Exception as e:
@@ -174,7 +158,7 @@ class LottoDataCollector:
                 return False
 
             # 기존 CSV 파일 로드 (파일은 반드시 존재하며, 형식은 아래와 같음)
-            # "회차, 날짜, 번호1, 번호2, 번호3, 번호4, 번호5, 번호6, 보너스"
+            # "회차, 추첨일, 1, 2, 3, 4, 5, 6, 보너스"
             df = pd.read_csv(self.data_file)
 
             # 중복 회차 체크
@@ -185,13 +169,13 @@ class LottoDataCollector:
             # 새 데이터 행 생성 (기존 CSV의 컬럼 이름에 맞게)
             new_row = pd.DataFrame([{
                 '회차': draw_no,
-                '날짜': drawn_date_formatted,
-                '번호1': numbers[0],
-                '번호2': numbers[1],
-                '번호3': numbers[2],
-                '번호4': numbers[3],
-                '번호5': numbers[4],
-                '번호6': numbers[5],
+                '추첨일': drawn_date_formatted,
+                '1': numbers[0],
+                '2': numbers[1],
+                '3': numbers[2],
+                '4': numbers[3],
+                '5': numbers[4],
+                '6': numbers[5],
                 '보너스': bonus
             }])
             
@@ -228,7 +212,7 @@ class LottoPredictor:
                 recent_numbers = []
                 for j in range(5):
                     row = df.iloc[i + j]
-                    numbers = [row[f"번호{k}"] for k in range(1, 7)] # 1~6번 번호
+                    numbers = [row[str(k)] for k in range(1, 7)] # 1~6번 번호
                     numbers.append(row['보너스'])  # 보너스 번호 추가
                     recent_numbers.extend(numbers)
                 features.append(recent_numbers)
@@ -371,7 +355,7 @@ def get_recommendation(strategy_counts):
         
         # 번호별 출현 빈도 분석
         all_numbers = []
-        for col in ['번호1', '번호2', '번호3', '번호4', '번호5', '번호6']:
+        for col in ['1', '2', '3', '4', '5', '6']:
             all_numbers.extend(df[col].tolist())
         number_counts = pd.Series(all_numbers).value_counts()
         
@@ -481,7 +465,7 @@ def check_data_status():
             return False, "데이터 파일이 비어있습니다."
 
         # 최신 데이터 확인
-        latest_date = pd.to_datetime(df['추첨일'].iloc[0])
+        latest_date = pd.to_datetime(df['날짜'].iloc[0])
         current_date = pd.Timestamp.now()
         days_diff = (current_date - latest_date).days
 

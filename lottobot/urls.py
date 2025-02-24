@@ -8,6 +8,7 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.auth import views as auth_views
 from . import views
 
+
 urlpatterns = [
     path('admin/', admin.site.urls),
     # 로그인/로그아웃/회원가입 URL
@@ -16,8 +17,7 @@ urlpatterns = [
     path('register/', views.register_view, name='register'),  # 회원가입 URL 추가
     
     # accounts 앱 URLs
-    path('accounts/', include('accounts.urls', namespace='accounts')),
-    
+    path("api/accounts/", include("accounts.urls", namespace="accounts")),
     # 메인 페이지와 다른 기능들
     path('main/', login_required(views.main_view), name='main'),
     path('chatbot/', include('chatbot.urls')),  # chatbot 기본 URL

@@ -1,40 +1,86 @@
 {% extends 'base.html' %}
 
+{% block sidebar %}
+<!-- 회원가입 화면에서는 사이드바를 표시하지 않음 -->
+{% endblock %}
+
 {% block content %}
-<div class="min-h-screen flex items-center justify-center bg-blue-100">
-    <div class="bg-white p-8 rounded-lg shadow-lg w-96">
-        <h1 class="text-4xl text-center mb-8">회원가입</h1>
+<div class="flex items-center justify-center min-h-screen p-6">
+    <div class="w-full max-w-md">
+        <h1 class="text-3xl font-bold text-center mb-8">로또 봇 회원가입</h1>
         
-        {% if messages %}
-            {% for message in messages %}
-                <div class="mb-4 p-2 bg-red-100 text-red-700 rounded">
-                    {{ message }}
-                </div>
-            {% endfor %}
-        {% endif %}
-        
-        <form method="post" class="space-y-6">
-            {% csrf_token %}
-            {% for field in form %}
-                <div class="space-y-2">
-                    <label class="block text-xl">{{ field.label }}</label>
-                    {{ field }}
-                    {% if field.help_text %}
-                        <p class="text-sm text-gray-500">{{ field.help_text }}</p>
-                    {% endif %}
-                    {% if field.errors %}
-                        {% for error in field.errors %}
-                            <p class="text-red-500 text-sm">{{ error }}</p>
-                        {% endfor %}
-                    {% endif %}
-                </div>
-            {% endfor %}
+        <div class="bg-white rounded-lg shadow-lg p-8">
+            {% if form.errors %}
+            <div class="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 mb-6">
+                {% for field in form %}
+                    {% for error in field.errors %}
+                    <p>{{ field.label }}: {{ error }}</p>
+                    {% endfor %}
+                {% endfor %}
+                
+                {% for error in form.non_field_errors %}
+                <p>{{ error }}</p>
+                {% endfor %}
+            </div>
+            {% endif %}
             
-            <button type="submit" 
-                    class="w-full p-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition">
-                가입하기
-            </button>
-        </form>
+            <form method="post" class="space-y-6">
+                {% csrf_token %}
+                
+                <div>
+                    <label for="id_username" class="block text-sm font-medium text-gray-700">아이디</label>
+                    <input type="text" name="username" id="id_username" required 
+                           class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 p-2">
+                    {% if form.username.errors %}
+                    <p class="text-red-500 text-xs mt-1">{{ form.username.errors.0 }}</p>
+                    {% endif %}
+                </div>
+                
+                <div>
+                    <label for="id_email" class="block text-sm font-medium text-gray-700">이메일</label>
+                    <input type="email" name="email" id="id_email" required 
+                           class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 p-2">
+                    {% if form.email.errors %}
+                    <p class="text-red-500 text-xs mt-1">{{ form.email.errors.0 }}</p>
+                    {% endif %}
+                </div>
+                
+                <div>
+                    <label for="id_password1" class="block text-sm font-medium text-gray-700">비밀번호</label>
+                    <input type="password" name="password1" id="id_password1" required 
+                           class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 p-2">
+                    {% if form.password1.errors %}
+                    <p class="text-red-500 text-xs mt-1">{{ form.password1.errors.0 }}</p>
+                    {% endif %}
+                    <p class="text-gray-500 text-xs mt-1">8자 이상, 숫자와 문자가 포함되어야 합니다.</p>
+                </div>
+                
+                <div>
+                    <label for="id_password2" class="block text-sm font-medium text-gray-700">비밀번호 확인</label>
+                    <input type="password" name="password2" id="id_password2" required 
+                           class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 p-2">
+                    {% if form.password2.errors %}
+                    <p class="text-red-500 text-xs mt-1">{{ form.password2.errors.0 }}</p>
+                    {% endif %}
+                </div>
+                
+                <div>
+                    <button type="submit" 
+                            class="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                        회원가입
+                    </button>
+                </div>
+            </form>
+            
+            <div class="mt-4 text-center">
+                <p class="text-sm text-gray-600">
+                    이미 계정이 있으신가요? 
+                    <a href="{% url 'login' %}" class="font-medium text-blue-600 hover:text-blue-500">
+                        로그인
+                    </a>
+                </p>
+            </div>
+        </div>
     </div>
 </div>
 {% endblock %}

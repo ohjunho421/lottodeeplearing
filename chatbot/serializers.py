@@ -10,4 +10,8 @@ class LottoDrawSerializer(serializers.ModelSerializer):
 class RecommendationSerializer(serializers.ModelSerializer):
     class Meta:
         model = Recommendation
-        fields = ['recommendation_date', 'strategy', 'numbers', 'is_checked', 'is_won', 'draw_round', 'draw_date']
+        fields = [
+            'recommendation_date', 'strategy', 'numbers', 
+            'is_checked', 'is_won', 'draw_round', 'draw_date',
+            'matched_count', 'has_bonus', 'rank'
+        ]

@@ -10,9 +10,10 @@ from . import views
 
 urlpatterns = [
     path('admin/', admin.site.urls),
-    # 로그인/로그아웃 URL
+    # 로그인/로그아웃/회원가입 URL
     path('', auth_views.LoginView.as_view(template_name='registration/login.html'), name='login'),
-    path('logout/', auth_views.LogoutView.as_view(next_page='login'), name='logout'),  # 로그아웃 URL 추가
+    path('logout/', auth_views.LogoutView.as_view(next_page='login'), name='logout'),
+    path('register/', views.register_view, name='register'),  # 회원가입 URL 추가
     
     # accounts 앱 URLs
     path('accounts/', include('accounts.urls', namespace='accounts')),
@@ -22,4 +23,5 @@ urlpatterns = [
     path('chatbot/', include('chatbot.urls')),  # chatbot 기본 URL
     path('api/', include('chatbot.urls')),  # API URL 추가
     path('mypage/', login_required(views.mypage_view), name='mypage'),
+    
 ] + static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)

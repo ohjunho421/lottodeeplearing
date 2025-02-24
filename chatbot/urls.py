@@ -12,4 +12,6 @@ urlpatterns = [
     path('chatbot/chat/', ChatAPIView.as_view(), name='chat'),
     path('chatbot/status/', DataStatusView.as_view(), name='status'),
     path('history/', HistoryAPIView.as_view(), name='history'),
+    path('metrics/', views.ModelMetricsView.as_view(), name='model-metrics'),
+
 ]

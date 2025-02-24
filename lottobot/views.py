@@ -2,6 +2,22 @@ from django.shortcuts import render
 from django.contrib.auth.decorators import login_required
 from chatbot.services import LottoDataCollector
 from chatbot.models import Recommendation
+from django.shortcuts import render, redirect
+from django.contrib.auth.forms import UserCreationForm
+from django.contrib import messages
+
+def register_view(request):
+    if request.method == 'POST':
+        form = UserCreationForm(request.POST)
+        if form.is_valid():
+            form.save()
+            username = form.cleaned_data.get('username')
+            messages.success(request, f'계정이 생성되었습니다. 이제 로그인할 수 있습니다.')
+            return redirect('login')
+    else:
+        form = UserCreationForm()
+    return render(request, 'registration/register.html', {'form': form})
+
 
 @login_required
 def main_view(request):
@@ -37,9 +53,9 @@ def mypage_view(request):
     # 사용자의 추천 번호 기록 가져오기
     recommendations = Recommendation.objects.filter(
         user=request.user
-    ).order_by('-created_at')[:10]  # 최근 10개
+    ).order_by('-recommendation_date')[:100]
 
     context = {
         'recommendations': recommendations
     }
-    return render(request, 'lottobot/mypage.html', context)
+    return render(request, 'chatbot/history.html', context)

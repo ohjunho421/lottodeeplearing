@@ -9,30 +9,32 @@
 <body class="bg-gray-100">
     <div class="flex h-screen">
         <!-- 사이드바 -->
-        {% if user.is_authenticated %}
-        <div class="w-64 bg-blue-600 text-white">
-            <div class="p-4">
-                <h2 class="text-2xl font-bold mb-4">Lotto Bot</h2>
-                <nav class="space-y-2">
-                    <a href="{% url 'main' %}" class="block p-2 hover:bg-blue-700 rounded">
-                        홈
+        {% block sidebar %}
+            {% if user.is_authenticated %}
+            <div class="w-64 bg-blue-600 text-white">
+                <div class="p-4">
+                    <h2 class="text-2xl font-bold mb-4">Lotto Bot</h2>
+                    <nav class="space-y-2">
+                        <a href="{% url 'main' %}" class="block p-2 hover:bg-blue-700 rounded">
+                            홈
+                        </a>
+                        <a href="{% url 'mypage' %}" class="block p-2 hover:bg-blue-700 rounded">
+                            추천 번호 히스토리
+                        </a>
+                        <a href="http://127.0.0.1:8000/chatbot/" class="block p-2 hover:bg-blue-700 rounded">
+                            번호 추천받기
+                        </a>
+                    </nav>
+                </div>
+                <div class="p-4 mt-auto border-t border-blue-700">
+                    <span class="block mb-2">{{ user.username }}님</span>
+                    <a href="{% url 'logout' %}" class="text-sm text-blue-200 hover:text-white">
+                        로그아웃
                     </a>
-                    <a href="{% url 'mypage' %}" class="block p-2 hover:bg-blue-700 rounded">
-                        추천 번호 히스토리
-                    </a>
-                    <a href="{% url 'chatbot:chat' %}" class="block p-2 hover:bg-blue-700 rounded">
-                        번호 추천받기
-                    </a>
-                </nav>
+                </div>
             </div>
-            <div class="p-4 mt-auto border-t border-blue-700">
-                <span class="block mb-2">{{ user.username }}님</span>
-                <a href="{% url 'logout' %}" class="text-sm text-blue-200 hover:text-white">
-                    로그아웃
-                </a>
-            </div>
-        </div>
-        {% endif %}
+            {% endif %}
+        {% endblock %}
 
         <!-- 메인 컨텐츠 -->
         <div class="flex-1 overflow-auto">

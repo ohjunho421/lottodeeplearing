@@ -1,0 +1,52 @@
+<!-- templates/chatbot/history.html -->
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container mx-auto p-6">
+    <h1 class="text-3xl font-bold mb-8">Lotto bot 히스토리</h1>
+    
+    {% if latest_numbers %}
+    <div class="mb-8">
+        <h2 class="text-xl font-semibold mb-4">최신 당첨번호 ({{ latest_round }}회)</h2>
+        <div class="flex gap-2">
+            {% for number in latest_numbers %}
+            <div class="w-10 h-10 rounded-full bg-blue-500 text-white flex items-center justify-center">
+                {{ number }}
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+    
+    <div class="bg-white rounded-lg shadow p-6">
+        <table class="w-full">
+            <thead>
+                <tr class="border-b-2">
+                    <th class="p-2 text-left">추천일자</th>
+                    <th class="p-2 text-left">전략</th>
+                    <th class="p-2 text-left">추천 번호</th>
+                    <th class="p-2 text-left">맞춘 개수</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for rec in recommendations %}
+                <tr class="border-b">
+                    <td class="p-2">{{ rec.recommendation_date|date:"Y.m.d" }}</td>
+                    <td class="p-2">전략 {{ rec.strategy }}</td>
+                    <td class="p-2">{{ rec.numbers }}</td>
+                    <td class="p-2">
+                        {% if rec.matched_count is not None %}
+                            <span class="{% if rec.matched_count >= 3 %}text-green-600 font-bold{% endif %}">
+                                {{ rec.matched_count }}개
+                            </span>
+                        {% else %}
+                            <span class="text-gray-500">-</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

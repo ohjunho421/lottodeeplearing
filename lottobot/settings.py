@@ -48,7 +48,7 @@ INSTALLED_APPS = [
 ]
 
 CRONJOBS = [
-    ("0 22 * * 6", "chatbot.cron.update_lotto_draws")  # 매주 토요일 22:00에 실행
+    ('0 21 * * 6', 'chatbot.cron.update_lotto_draws', '>> /tmp/lotto_cron.log 2>&1')
 ]
 
 

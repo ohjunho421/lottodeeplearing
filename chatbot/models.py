@@ -1,7 +1,5 @@
 from django.conf import settings
 from django.db import models
-from django.contrib.auth.models import User
-
 
 class LottoDraw(models.Model):
     round_no = models.IntegerField(unique=True)  # 회차 번호
@@ -22,7 +20,7 @@ class ChatHistory(models.Model):
         return f"Chat by {self.user} at {self.created_at}"
 
 class Recommendation(models.Model):
-    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)  # User 모델 참조 수정
     recommendation_date = models.DateField(auto_now_add=True)
     strategy = models.IntegerField()  # 1 또는 2
     numbers = models.CharField(max_length=20)  # "1,3,6,34,47,25" 형식으로 저장
@@ -36,4 +34,3 @@ class Recommendation(models.Model):
 
     class Meta:
         ordering = ['-recommendation_date']
-

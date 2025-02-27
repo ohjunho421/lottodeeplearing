@@ -3,21 +3,22 @@ from django.contrib.auth.decorators import login_required
 from chatbot.services import LottoDataCollector
 from chatbot.models import Recommendation
 from django.shortcuts import render, redirect
-from django.contrib.auth.forms import UserCreationForm
+# from django.contrib.auth.forms import UserCreationForm  # 이 줄 제거 또는 주석 처리
 from django.contrib import messages
+from django.contrib.auth import login
+from accounts.forms import CustomUserCreationForm
 
 def register_view(request):
     if request.method == 'POST':
-        form = UserCreationForm(request.POST)
+        form = CustomUserCreationForm(request.POST)  # 여기 변경
         if form.is_valid():
-            form.save()
+            user = form.save()
             username = form.cleaned_data.get('username')
             messages.success(request, f'계정이 생성되었습니다. 이제 로그인할 수 있습니다.')
             return redirect('login')
     else:
-        form = UserCreationForm()
+        form = CustomUserCreationForm()  # 여기도 변경
     return render(request, 'registration/register.html', {'form': form})
-
 
 @login_required
 def main_view(request):
@@ -42,7 +43,7 @@ def main_view(request):
             }
     except Exception as e:
         print(f"Error fetching latest numbers: {e}")
-
+    
     context = {
         'latest_numbers': latest_numbers
     }
@@ -54,7 +55,7 @@ def mypage_view(request):
     recommendations = Recommendation.objects.filter(
         user=request.user
     ).order_by('-recommendation_date')[:100]
-
+    
     context = {
         'recommendations': recommendations
     }

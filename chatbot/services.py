@@ -23,6 +23,57 @@ from stable_baselines3.common.vec_env import DummyVecEnv
 
 logger = logging.getLogger(__name__)
 
+# LLM API 관련 설정
+LLM_API_KEY = os.environ.get("OPENAI_API_KEY")  # OpenAI API 키 가져오기
+LLM_API_URL = "https://api.openai.com/v1/chat/completions"  # OpenAI API URL
+
+class LLMCache:
+    def __init__(self, cache_file=None, max_age_hours=24):
+        self.cache_file = cache_file or os.path.join(settings.BASE_DIR, 'data', 'llm_cache.json')
+        self.max_age_hours = max_age_hours
+        self.cache = self._load_cache()
+        
+    def _load_cache(self):
+        try:
+            if os.path.exists(self.cache_file):
+                with open(self.cache_file, 'r') as f:
+                    cache = json.load(f)
+                return cache
+            return {}
+        except Exception as e:
+            logger.error(f"캐시 로드 오류: {str(e)}")
+            return {}
+            
+    def _save_cache(self):
+        try:
+            os.makedirs(os.path.dirname(self.cache_file), exist_ok=True)
+            with open(self.cache_file, 'w') as f:
+                json.dump(self.cache, f)
+        except Exception as e:
+            logger.error(f"캐시 저장 오류: {str(e)}")
+            
+    def get(self, key):
+        if key in self.cache:
+            entry = self.cache[key]
+            timestamp = entry['timestamp']
+            current_time = datetime.now().timestamp()
+            
+            # 캐시 만료 확인
+            if (current_time - timestamp) / 3600 <= self.max_age_hours:
+                return entry['data']
+                
+        return None
+        
+    def set(self, key, data):
+        self.cache[key] = {
+            'timestamp': datetime.now().timestamp(),
+            'data': data
+        }
+        self._save_cache()
+
+# 전역 LLM 캐시 인스턴스 생성
+llm_cache = LLMCache()
+
 class LottoDataCollector:
     def __init__(self):
         self.base_url = "https://www.dhlottery.co.kr/gameResult.do?method=byWin"
@@ -327,25 +378,6 @@ class AdvancedLottoPredictor:
         except Exception as e:
             logger.error(f"모델 로드 중 오류: {str(e)}")
             return False
-        
-    def load_models(self):
-        """모든 모델 로드"""
-        try:
-            if all(os.path.exists(f) for f in [self.xgb_file, self.lstm_file, self.scaler_file]):
-                self.xgb_model = xgb.XGBRegressor()
-                self.xgb_model.load_model(self.xgb_file)
-                self.lstm_model = models.load_model(self.lstm_file)
-                self.scaler = load(self.scaler_file)
-                
-                if os.path.exists(self.rl_file):
-                    self.rl_model = PPO.load(self.rl_file)
-                
-                return True
-            return False
-            
-        except Exception as e:
-            logger.error(f"모델 로드 중 오류: {str(e)}")
-            return False
 
     def train_models(self):
         """모든 모델 학습"""
@@ -523,13 +555,55 @@ class AdvancedLottoPredictor:
                     recent_trend = pattern['trend'].iloc[-1] if not pd.isna(pattern['trend'].iloc[-1]) else 1
                     weights[num-1] *= (1 + recent_trend/10)
 
-            # 모델 예측 결합
-            combined_pred = 0.3 * xgb_pred + 0.5 * rf_pred.flatten() + 0.2 * weights
+            # 모델 예측을 가중치로 변환
+            # XGBoost 예측을 가중치로 변환
+            xgb_weights = np.ones(45) * 0.01  # 기본 낮은 가중치 설정
+            if len(xgb_pred.shape) > 1 and xgb_pred.shape[1] == 6:
+                # 특정 번호를 예측하는 경우
+                for i in range(xgb_pred.shape[1]):
+                    predicted_num = int(round(xgb_pred[0, i]))
+                    if 1 <= predicted_num <= 45:
+                        xgb_weights[predicted_num-1] = 1.0
+            else:
+                # 이미 확률 형태라면 그대로 사용
+                xgb_weights = xgb_pred
+
+            # RandomForest 예측을 가중치로 변환
+            rf_weights = np.ones(45) * 0.01  # 기본 낮은 가중치 설정
+            if len(rf_pred.shape) == 1 and rf_pred.shape[0] == 6:
+                # 특정 번호를 예측하는 경우
+                for i in range(rf_pred.shape[0]):
+                    predicted_num = int(round(rf_pred[i]))
+                    if 1 <= predicted_num <= 45:
+                        rf_weights[predicted_num-1] = 1.0
+            elif len(rf_pred.shape) > 1 and rf_pred.shape[1] == 6:
+                # 2차원 배열인 경우
+                for i in range(rf_pred.shape[1]):
+                    predicted_num = int(round(rf_pred[0, i]))
+                    if 1 <= predicted_num <= 45:
+                        rf_weights[predicted_num-1] = 1.0
+            else:
+                # 이미 확률 형태라면 그대로 사용
+                rf_weights = rf_pred.flatten() if rf_pred.size > 6 else np.ones(45) / 45
+
+            # 정규화
+            xgb_weights = xgb_weights / np.sum(xgb_weights)
+            rf_weights = rf_weights / np.sum(rf_weights)
+            weights = weights / np.sum(weights)
+            
+            # 가중치 결합
+            combined_pred = 0.3 * xgb_weights + 0.5 * rf_weights + 0.2 * weights
             
             # 확률 정규화
             probabilities = combined_pred / np.sum(combined_pred)
 
             return probabilities
+
+        except Exception as e:
+            logger.error(f"예측 중 오류 발생: {str(e)}")
+            import traceback
+            logger.error(traceback.format_exc())
+            return np.ones(45) / 45
 
         except Exception as e:
             logger.error(f"예측 중 오류 발생: {str(e)}")
@@ -577,8 +651,196 @@ class LottoEnvironment(gym.Env):
         rewards = {6: 1000, 5: 100, 4: 10, 3: 1, 2: 0.1, 1: 0.01, 0: -0.1}
         return rewards.get(matches, 0)
 
+def get_llm_weights(df, predicted_probs, frequency_data, temporal_patterns, previous_selections, strategy):
+    """LLM을 사용하여 로또 번호에 대한 가중치 생성"""
+    try:
+        if not LLM_API_KEY:
+            logger.warning("OpenAI API 키가 설정되지 않았습니다. 랜덤 가중치를 반환합니다.")
+            return np.random.random(45)
+        
+        # 캐시 키 생성 (최근 회차 번호, 이전 선택, 전략으로 구성)
+        latest_draw = df.iloc[0]['회차'] if not df.empty else 0
+        cache_key = f"{latest_draw}-{sorted(list(previous_selections))}-{strategy}"
+        
+        # 캐시 확인
+        cached_weights = llm_cache.get(cache_key)
+        if cached_weights is not None:
+            logger.info("캐시된 LLM 가중치 사용")
+            return np.array(cached_weights)
+        
+        # 최근 10회 당첨 번호 추출
+        recent_draws = df.head(10)[['회차', '1', '2', '3', '4', '5', '6', '보너스']].to_dict('records')
+        
+        # 빈도 데이터 정리
+        freq_list = []
+        for num, freq in frequency_data.items():
+            try:
+                num_int = int(num)
+                freq_int = int(freq)
+                freq_list.append({"number": num_int, "frequency": freq_int})
+            except (ValueError, TypeError):
+                continue
+        
+        # 빈도 통계 계산
+        freqs = np.array([frequency_data.get(n, 0) for n in range(1, 46)])
+        mean_freq = np.mean(freqs)
+        std_freq = np.std(freqs)
+        
+        # 시계열 패턴 데이터 정리
+        patterns_simplified = {}
+        for num in range(1, 46):
+            if num in temporal_patterns:
+                pattern = temporal_patterns[num]
+                try:
+                    trend_value = float(pattern['trend'].iloc[-1]) if not pd.isna(pattern['trend'].iloc[-1]) else 1.0
+                    seasonal_value = float(pattern['seasonal'].iloc[-1]) if not pd.isna(pattern['seasonal'].iloc[-1]) else 0.0
+                    patterns_simplified[str(num)] = {
+                        "trend": trend_value,
+                        "seasonal": seasonal_value
+                    }
+                except (IndexError, AttributeError, TypeError):
+                    patterns_simplified[str(num)] = {
+                        "trend": 1.0,
+                        "seasonal": 0.0
+                    }
+        
+        # 이전 선택 번호
+        prev_selected = [int(num) for num in previous_selections]
+        
+        # ML 모델 예측 확률
+        ml_probs = [float(prob) for prob in predicted_probs]
+        
+        # 전략 정보
+        strategy_int = int(strategy)
+        
+        # 전략별 설명 추가
+        strategy_description = ""
+        if strategy_int == 1:
+            strategy_description = """
+            전략 1은 '핫 넘버(Hot Number)' 전략으로, 과거에 평균보다 더 자주 나온 번호를 선호합니다.
+            평균 빈도는 {:.2f}이며, 이보다 높은 빈도를 가진 번호에 더 높은 가중치를 부여해야 합니다.
+            """.format(mean_freq)
+        else:
+            strategy_description = """
+            전략 2는 '쿨링 다운(Cooling Down)' 전략으로, 평균~평균-표준편차 범위의 번호 중 상승 추세를 보이는 번호를 선호합니다.
+            평균 빈도는 {:.2f}, 표준편차는 {:.2f}이며, 평균-표준편차({:.2f})와 평균 사이의 빈도를 가진 번호를 선호합니다.
+            특히 상승 추세(trend > 1)를 보이는 번호에 더 높은 가중치를 부여해야 합니다.
+            """.format(mean_freq, std_freq, mean_freq - std_freq)
+        
+        # LLM에 전송할 컨텍스트 생성 - 전략별 맞춤형 프롬프트
+        prompt = {
+            "model": "gpt-4",  # 또는 다른 모델
+            "messages": [
+                {"role": "system", "content": f"""
+                당신은 로또 번호 예측 전문가입니다. 과거 데이터, 빈도 분석, 시계열 패턴, 그리고 머신러닝 예측을 기반으로 
+                1부터 45까지의 번호에 대한 가중치를 생성해주세요. 가중치는 각 번호가 다음 추첨에 나올 가능성을 나타냅니다.
+                
+                {strategy_description}
+                
+                응답은 JSON 형식의 배열로, 1부터 45까지 각 번호에 대한 가중치 값만 포함해야 합니다.
+                가중치 값은 0과 1 사이의 숫자여야 하며, 전체 합은 1에 가까워야 합니다.
+                """},
+                {"role": "user", "content": json.dumps({
+                    "strategy": strategy_int,
+                    "recent_draws": recent_draws,
+                    "frequency_data": freq_list,
+                    "mean_frequency": float(mean_freq),
+                    "std_frequency": float(std_freq),
+                    "temporal_patterns": patterns_simplified,
+                    "ml_predictions": ml_probs,
+                    "previous_selections": prev_selected
+                }, ensure_ascii=False)}
+            ],
+            "temperature": 0.7,
+            "max_tokens": 500
+        }
+        
+        # API 요청
+        headers = {
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {LLM_API_KEY}"
+        }
+        
+        try:
+            response = requests.post(LLM_API_URL, headers=headers, json=prompt, timeout=30)
+            
+            if response.status_code != 200:
+                logger.error(f"LLM API 오류: {response.status_code} - {response.text}")
+                return np.random.random(45)
+            
+            # 응답 처리
+            result = response.json()
+            llm_content = result["choices"][0]["message"]["content"]
+            
+            logger.info(f"LLM 응답 수신 (길이: {len(llm_content)})")
+            
+            try:
+                # JSON 응답 파싱
+                weights_data = json.loads(llm_content)
+                logger.info(f"LLM 응답 파싱 성공, 타입: {type(weights_data)}")
+                
+                # 배열 형태로 반환되었는지 확인
+                if isinstance(weights_data, list) and len(weights_data) == 45:
+                    weights = np.array(weights_data, dtype=float)
+                    llm_cache.set(cache_key, weights.tolist())
+                    return weights
+                else:
+                    # 다른 형식으로 반환된 경우 처리
+                    weights = np.ones(45)
+                    if isinstance(weights_data, dict):
+                        for key, value in weights_data.items():
+                            try:
+                                if key.isdigit() and 1 <= int(key) <= 45:
+                                    weights[int(key)-1] = float(value)
+                            except (ValueError, TypeError, IndexError):
+                                pass
+                    llm_cache.set(cache_key, weights.tolist())
+                    return weights
+                    
+            except json.JSONDecodeError as e:
+                logger.error(f"LLM 응답 파싱 오류: {e}")
+                logger.error(f"원본 응답: {llm_content[:100]}...")
+                # 파싱 실패 시 텍스트에서 숫자 추출 시도
+                try:
+                    import re
+                    numbers = re.findall(r"[\d\.]+", llm_content)
+                    if len(numbers) >= 45:
+                        weights = np.array([float(num) for num in numbers[:45]])
+                        llm_cache.set(cache_key, weights.tolist())
+                        return weights
+                except Exception as parsing_e:
+                    logger.error(f"숫자 추출 시도 오류: {parsing_e}")
+                
+                return np.random.random(45)
+        
+        except requests.exceptions.RequestException as e:
+            logger.error(f"LLM API 요청 오류: {e}")
+            return np.random.random(45)
+            
+    except Exception as e:
+        logger.error(f"LLM 가중치 생성 중 오류: {str(e)}")
+        import traceback
+        logger.error(traceback.format_exc())
+        return np.random.random(45)
+
+# 공유 인스턴스 생성
+# 공유 인스턴스는 그대로 유지
+shared_predictor = AdvancedLottoPredictor() 
+shared_predictor.load_models()
+
+# 캐시 변수 추가
+import time
+predicted_probs_cache = None
+strategy_weights_cache = {}
+temporal_patterns_cache = None
+last_updated = None
+
 def get_recommendation(strategy_counts):
-    """전략별 로또 번호 추천"""
+    """전략별 로또 번호 추천 (LLM 통합)"""
+    # 전역 변수 참조
+    global shared_predictor, predicted_probs_cache, strategy_weights_cache
+    global temporal_patterns_cache, last_updated
+    
     try:
         if not os.path.exists(settings.LOTTO_DATA_FILE):
             logger.info("데이터 파일이 없습니다. 초기 데이터를 수집합니다.")
@@ -586,73 +848,178 @@ def get_recommendation(strategy_counts):
             collector.collect_initial_data()
 
         df = pd.read_csv(settings.LOTTO_DATA_FILE)
-        predictor = AdvancedLottoPredictor()
         
-        # 고급 예측 확률 계산
-        predicted_probs = predictor.predict_numbers()
+        # 데이터 파일 마지막 수정 시간 확인
+        data_mtime = os.path.getmtime(settings.LOTTO_DATA_FILE)
         
-        # 번호별 출현 빈도 분석
-        all_numbers = []
-        for col in ['1', '2', '3', '4', '5', '6']:
-            all_numbers.extend(df[col].tolist())
-        number_counts = pd.Series(all_numbers).value_counts()
+        # 캐시 초기화 또는 업데이트 필요한지 확인
+        cache_valid = (last_updated is not None and data_mtime <= last_updated)
         
-        # 시계열 패턴 분석
-        temporal_patterns = predictor.analyze_temporal_patterns(df)
+        if not cache_valid:
+            logger.info("캐시가 없거나 데이터가 업데이트되어 가중치를 새로 계산합니다.")
+            
+            # 번호별 출현 빈도 분석
+            all_numbers = []
+            for col in ['1', '2', '3', '4', '5', '6']:
+                all_numbers.extend(df[col].tolist())
+            number_counts = pd.Series(all_numbers).value_counts()
+            
+            # ML 예측 확률 캐싱
+            predicted_probs_cache = shared_predictor.predict_numbers()
+            
+            # 시계열 패턴 분석 캐싱
+            temporal_patterns_cache = shared_predictor.analyze_temporal_patterns(df)
+            
+            # 전략별 기본 가중치 캐싱
+            strategy_weights_cache = {}
+            
+            # 전략 1: 평균 이상 많이 나온 번호 가중치
+            freqs = np.array([number_counts.get(n, 0) for n in range(1, 46)])
+            mean_freq = np.mean(freqs)
+            weights1 = np.array([
+                (number_counts.get(n, 0) - mean_freq) if number_counts.get(n, 0) > mean_freq else 0.0001
+                for n in range(1, 46)
+            ])
+            min_weight = np.min(weights1)
+            if min_weight < 0:
+                weights1 = weights1 - min_weight
+            weights1 = weights1 / np.sum(weights1)
+            strategy_weights_cache[1] = weights1
+            
+            # 전략 2: 평균~평균-표준편차 범위 + 상승 추세
+            std_freq = np.std(freqs)
+            weights2 = np.array([
+                1.0 if (mean_freq - std_freq <= number_counts.get(n, 0) <= mean_freq) else 0.0001
+                for n in range(1, 46)
+            ])
+            for num in range(1, 46):
+                if num in temporal_patterns_cache:
+                    pattern = temporal_patterns_cache[num]
+                    trend = pattern['trend'].iloc[-1] if not pd.isna(pattern['trend'].iloc[-1]) else 1
+                    if trend > 1:
+                        weights2[num-1] *= (1 + trend/5)
+            weights2 = weights2 / np.sum(weights2)
+            strategy_weights_cache[2] = weights2
+            
+            last_updated = time.time()  # 현재 시간으로 업데이트
+        else:
+            logger.info("캐시된 예측 가중치를 사용합니다.")
         
         recommendations = []
         previous_selections = set()
 
+        # 전략 타입을 문자열에서 정수로 변환
+        strategy_counts_int = {}
         for strategy, count in strategy_counts.items():
-            strategy = int(strategy)
-            for _ in range(count):
-                if strategy == 1:
-                    weights = np.array([
-                        number_counts.get(n, 0) / number_counts.max() for n in range(1, 46)
-                    ])
-                else:
-                    weights = np.zeros(45)
-                    for num in range(1, 46):
-                        if num in temporal_patterns:
-                            pattern = temporal_patterns[num]
-                            trend = pattern['trend'].iloc[-1] if not pd.isna(pattern['trend'].iloc[-1]) else 1
-                            seasonal = pattern['seasonal'].iloc[-1] if not pd.isna(pattern['seasonal'].iloc[-1]) else 0
-                            weights[num-1] = (1 + trend/10) * (1 + seasonal/5)
-                
-                # ML 예측 확률과 결합
-                final_weights = 0.3 * weights + 0.4 * predicted_probs
-                
-                # 이전 선택에 대한 페널티
-                penalty = np.array([0.7 if i+1 in previous_selections else 1.0 for i in range(45)])
-                final_weights *= penalty
-                
-                # 랜덤성 추가
-                random_weights = np.random.random(45)
-                final_weights = 0.7 * final_weights + 0.3 * random_weights
-                
-                # 정규화
-                final_weights = final_weights / np.sum(final_weights)
+            try:
+                strategy_key = int(strategy)
+                strategy_counts_int[strategy_key] = int(count)
+            except (ValueError, TypeError):
+                logger.error(f"전략 변환 오류: {strategy}:{count}")
+                strategy_counts_int[1] = 1  # 기본값 설정
+        
+        logger.info(f"전략 카운트: {strategy_counts_int}")
+
+        for strategy, count in strategy_counts_int.items():
+            logger.info(f"전략 {strategy} 처리, {count}개 번호 조합 생성")
+            
+            for i in range(count):
+                logger.info(f"전략 {strategy}, 조합 {i+1}/{count} 생성 중")
                 
                 try:
+                    # 캐시된 가중치 사용
+                    if strategy in strategy_weights_cache:
+                        weights = strategy_weights_cache[strategy]
+                        if strategy == 1:
+                            logger.info(f"전략 1 (핫 넘버) 가중치 사용: {weights[:5]}...")
+                        else:
+                            logger.info(f"전략 2 (쿨링 다운 + 트렌드) 가중치 사용: {weights[:5]}...")
+                    else:
+                        # 캐시 없는 경우 기본값
+                        weights = np.ones(45) / 45
+                    
+                    # ML 예측 확률과 결합
+                    stat_ml_weights = 0.3 * weights + 0.4 * predicted_probs_cache
+                    
+                    # 이전 선택에 대한 페널티
+                    penalty = np.array([0.7 if i+1 in previous_selections else 1.0 for i in range(45)])
+                    stat_ml_weights *= penalty
+                    
+                    # LLM 기반 가중치 생성 시도
+                    try:
+                        llm_weights = get_llm_weights(
+                            df, 
+                            predicted_probs_cache, 
+                            None,  # number_counts는 함수 내에서 처리됨
+                            temporal_patterns_cache, 
+                            previous_selections,
+                            strategy
+                        )
+                        
+                        # 유효한 가중치인지 확인
+                        if np.any(np.isnan(llm_weights)) or np.any(np.isinf(llm_weights)):
+                            logger.warning("LLM 가중치에 NaN 또는 무한값 발견, 랜덤 가중치로 대체")
+                            llm_weights = np.random.random(45)
+                        
+                        # 정규화
+                        llm_sum = np.sum(llm_weights)
+                        if llm_sum > 0:
+                            llm_weights = llm_weights / llm_sum
+                        else:
+                            llm_weights = np.ones(45) / 45
+                        
+                        logger.info(f"LLM 가중치 생성 완료: {llm_weights[:5]}...")
+                        
+                    except Exception as e:
+                        logger.error(f"LLM 가중치 생성 실패, 랜덤 가중치 사용: {str(e)}")
+                        llm_weights = np.random.random(45)
+                        llm_weights = llm_weights / np.sum(llm_weights)
+                    
+                    # 최종 가중치 계산
+                    final_weights = 0.7 * stat_ml_weights + 0.3 * llm_weights
+                    
+                    # 정규화
+                    weight_sum = np.sum(final_weights)
+                    if weight_sum > 0:
+                        final_weights = final_weights / weight_sum
+                    else:
+                        final_weights = np.ones(45) / 45
+                    
+                    logger.info(f"최종 가중치 생성 완료: {final_weights[:5]}...")
+                    
+                    # 번호 선택
                     selected = np.random.choice(
                         range(1, 46),
                         size=6,
                         replace=False,
                         p=final_weights
                     )
+                    selected_list = sorted([int(num) for num in selected])
+                    logger.info(f"선택된 번호: {selected_list}")
+                    
                     previous_selections.update(selected)
-                    recommendations.append((strategy, sorted(selected)))
-                except ValueError as e:
-                    logger.error(f"번호 선택 중 오류: {str(e)}")
+                    recommendations.append((strategy, selected_list))
+                    
+                except Exception as e:
+                    logger.error(f"번호 추천 과정 중 오류: {str(e)}")
+                    import traceback
+                    logger.error(traceback.format_exc())
+                    
+                    # 오류 발생 시 안전한 대체 방법으로 번호 선택
                     selected = np.random.choice(range(1, 46), size=6, replace=False)
-                    recommendations.append((strategy, sorted(selected)))
+                    selected_list = sorted([int(num) for num in selected])
+                    recommendations.append((strategy, selected_list))
+                    logger.info(f"오류 후 대체 번호: {selected_list}")
         
+        logger.info(f"최종 추천 번호 개수: {len(recommendations)}")
         return recommendations, None
         
     except Exception as e:
-        logger.error(f"번호 추천 중 오류 발생: {str(e)}")
-        return None, str(e)
-
+        logger.error(f"번호 추천 중 전체 오류 발생: {str(e)}")
+        import traceback
+        logger.error(traceback.format_exc())
+        return [], str(e)
+    
 def check_data_status():
     """데이터 상태 확인"""
     try:
@@ -678,3 +1045,35 @@ def check_data_status():
     except Exception as e:
         logger.error(f"데이터 상태 확인 중 오류 발생: {str(e)}")
         return False, f"데이터 상태 확인 중 오류 발생: {str(e)}"
+
+def check_llm_status():
+    """LLM 연결 상태 확인"""
+    if not LLM_API_KEY:
+        return False, "LLM API 키가 설정되지 않았습니다. 환경 변수 LLM_API_KEY를 설정해주세요."
+        
+    try:
+        # 간단한 테스트 요청
+        prompt = {
+            "model": "gpt-3.5-turbo",  # 가장 저렴한 모델로 테스트
+            "messages": [
+                {"role": "user", "content": "Hello"}
+            ],
+            "max_tokens": 5
+        }
+        
+        headers = {
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {LLM_API_KEY}"
+        }
+        
+        response = requests.post(LLM_API_URL, headers=headers, json=prompt, timeout=5)
+        
+        if response.status_code == 200:
+            return True, "LLM API 연결이 정상입니다."
+        else:
+            return False, f"LLM API 연결 테스트 실패: {response.status_code} - {response.text}"
+            
+    except requests.exceptions.RequestException as e:
+        return False, f"LLM API 연결 오류: {str(e)}"
+    except Exception as e:
+        return False, f"LLM 상태 확인 중 오류 발생: {str(e)}"

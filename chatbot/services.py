@@ -1077,3 +1077,90 @@ def check_llm_status():
         return False, f"LLM API 연결 오류: {str(e)}"
     except Exception as e:
         return False, f"LLM 상태 확인 중 오류 발생: {str(e)}"
+
+def check_winning_numbers():
+    """
+    사용자 추천 번호의 당첨 여부 확인 및 업데이트
+    """
+    from django.db.models import F
+    from chatbot.models import Recommendation, LottoDraw
+    
+    try:
+        # 미확인 상태인 추천 기록 조회
+        unverified_recommendations = Recommendation.objects.filter(is_checked=False)
+        
+        if not unverified_recommendations.exists():
+            logger.info("확인할 추천 기록이 없습니다.")
+            return True, "확인할 추천 기록이 없습니다."
+        
+        # 최신 당첨 정보 가져오기
+        latest_draws = LottoDraw.objects.all().order_by('-round_no')
+        
+        if not latest_draws.exists():
+            logger.warning("당첨 정보가 없습니다.")
+            return False, "당첨 정보가 없습니다."
+        
+        # 각 추천 기록에 대해 당첨 여부 확인
+        updated_count = 0
+        for recommendation in unverified_recommendations:
+            # 해당 추천 번호의 회차에 맞는 당첨 정보 찾기
+            matching_draw = None
+            for draw in latest_draws:
+                # 추첨일이 추천일 이후인 첫 번째 회차 찾기
+                if draw.draw_date > recommendation.recommendation_date:
+                    matching_draw = draw
+                    break
+            
+            if not matching_draw:
+                continue  # 아직 해당 추천의 추첨 결과가 없음
+            
+            # 추천 번호와 당첨 번호 비교
+            winning_numbers = [int(n) for n in matching_draw.winning_numbers.split(',')]
+            recommended_numbers = [int(n) for n in recommendation.numbers.split(',')]
+            
+            # 일치하는 번호 개수 계산
+            matched_count = len(set(winning_numbers) & set(recommended_numbers))
+            
+            # 보너스 번호 일치 여부 확인
+            has_bonus = matching_draw.bonus_number in recommended_numbers
+            
+            # 당첨 등수 계산
+            rank = 0  # 기본값 (낙첨)
+            is_won = False
+            
+            if matched_count == 6:
+                rank = 1
+                is_won = True
+            elif matched_count == 5 and has_bonus:
+                rank = 2
+                is_won = True
+            elif matched_count == 5:
+                rank = 3
+                is_won = True
+            elif matched_count == 4:
+                rank = 4
+                is_won = True
+            elif matched_count == 3:
+                rank = 5
+                is_won = True
+            
+            # 추천 기록 업데이트
+            recommendation.is_checked = True
+            recommendation.is_won = is_won
+            recommendation.draw_round = matching_draw.round_no
+            recommendation.draw_date = matching_draw.draw_date
+            recommendation.matched_count = matched_count
+            recommendation.has_bonus = has_bonus
+            recommendation.rank = rank
+            recommendation.save()
+            
+            updated_count += 1
+        
+        logger.info(f"{updated_count}개의 추천 기록이 업데이트되었습니다.")
+        return True, f"{updated_count}개의 추천 기록이 업데이트되었습니다."
+    
+    except Exception as e:
+        logger.error(f"당첨 확인 중 오류 발생: {str(e)}")
+        import traceback
+        logger.error(traceback.format_exc())
+        return False, f"당첨 확인 중 오류 발생: {str(e)}"

@@ -27,7 +27,7 @@ from rest_framework.permissions import AllowAny  # 추가
 from .services import (
     get_recommendation, 
     check_data_status,
-    AdvancedLottoPredictor  # 이 부분이 추가됨
+    AdvancedLottoPredictor 
 )
 
 logger = logging.getLogger(__name__)

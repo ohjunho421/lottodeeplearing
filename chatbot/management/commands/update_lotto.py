@@ -1,8 +1,7 @@
 # chatbot/management/commands/update_lotto.py
 
 from django.core.management.base import BaseCommand
-from chatbot.services import LottoDataCollector
-from chatbot import lotto_ml  # 새로 만든 머신러닝 모듈
+from chatbot.services import LottoDataCollector, AdvancedLottoPredictor
 import logging
 import pandas as pd
 from django.conf import settings
@@ -31,13 +30,24 @@ class Command(BaseCommand):
             else:
                 self.stdout.write(self.style.WARNING('새로운 데이터가 없거나 이미 최신 상태입니다.'))
 
-            # 2. 머신러닝 모델 학습 (충분한 데이터가 있는 경우)
+            # 2. 머신러닝 모델 학습 (AdvancedLottoPredictor 사용)
             if df is not None and len(df) >= 6:
                 self.stdout.write("머신러닝 모델 학습 시작...")
-                model, scaler, df_model = lotto_ml.train_lotto_model(window_size=5)
-                self.stdout.write(self.style.SUCCESS('머신러닝 모델 학습 완료'))
+                predictor = AdvancedLottoPredictor()
+                success, results = predictor.train_models()
+                if success:
+                    self.stdout.write(self.style.SUCCESS('머신러닝 모델 학습 완료'))
+                    if results:
+                        self.stdout.write(f"XGBoost 모델 R2 (Train): {results['xgb_train_r2']:.4f}")
+                        self.stdout.write(f"XGBoost 모델 R2 (Test): {results['xgb_test_r2']:.4f}")
+                        self.stdout.write(f"RandomForest 모델 R2 (Train): {results['rf_train_r2']:.4f}")
+                        self.stdout.write(f"RandomForest 모델 R2 (Test): {results['rf_test_r2']:.4f}")
+                else:
+                    self.stdout.write(self.style.ERROR('머신러닝 모델 학습 실패'))
             else:
                 self.stdout.write(self.style.ERROR('학습에 필요한 충분한 데이터가 없습니다.'))
 
         except Exception as e:
             self.stdout.write(self.style.ERROR(f'오류 발생: {str(e)}'))
+            import traceback
+            self.stdout.write(traceback.format_exc())

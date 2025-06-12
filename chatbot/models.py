@@ -1,5 +1,8 @@
 from django.conf import settings
 from django.db import models
+from django.utils import timezone
+from django.contrib.auth.models import User
+from datetime import timedelta
 
 class LottoDraw(models.Model):
     round_no = models.IntegerField(unique=True)  # 회차 번호
@@ -34,3 +37,53 @@ class Recommendation(models.Model):
 
     class Meta:
         ordering = ['-recommendation_date']
+
+
+class Payment(models.Model):
+    """결제 정보 모델"""
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    amount = models.IntegerField(default=30000)  # 월 3만원 고정
+    payment_date = models.DateTimeField(auto_now_add=True)
+    payment_id = models.CharField(max_length=100)  # 결제 대행사의 결제 ID
+    payment_method = models.CharField(max_length=50)  # 카드, 계좌이체 등
+    is_successful = models.BooleanField(default=False)
+    subscription_period = models.IntegerField(default=1)  # 구독 개월 수
+    
+    def __str__(self):
+        return f"{self.user.username}의 결제 - {self.payment_date.strftime('%Y-%m-%d')} ({self.amount}원)"
+
+
+class UserProfile(models.Model):
+    """사용자 프로필 모델"""
+    user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='profile')
+    subscription_start = models.DateTimeField(null=True, blank=True)
+    subscription_end = models.DateTimeField(null=True, blank=True)
+    is_subscribed = models.BooleanField(default=False)
+    is_premium = models.BooleanField(default=False)  # 특별 계정 표시 (구독 없이도 이용 가능)
+    last_payment_date = models.DateTimeField(null=True, blank=True)
+    
+    def __str__(self):
+        subscription_status = "구독 중" if self.is_subscription_active() else "구독 없음"
+        if self.is_premium:
+            subscription_status = "프리미엄 계정"
+        return f"{self.user.username} - {subscription_status}"
+    
+    def is_subscription_active(self):
+        """구독이 현재 유효한지 확인"""
+        if self.is_premium:  # 프리미엄 계정은 항상 유효
+            return True
+        if not self.is_subscribed:
+            return False
+        now = timezone.now()
+        return self.subscription_start <= now <= self.subscription_end
+    
+    def extend_subscription(self, months=1):
+        """구독 기간 연장"""
+        now = timezone.now()
+        if self.is_subscription_active():
+            self.subscription_end = self.subscription_end + timedelta(days=30*months)
+        else:
+            self.subscription_start = now
+            self.subscription_end = now + timedelta(days=30*months)
+            self.is_subscribed = True
+        self.save()

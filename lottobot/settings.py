@@ -62,6 +62,7 @@ MIDDLEWARE = [
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
+    "chatbot.middleware.SubscriptionMiddleware",  # 구독 확인 미들웨어 추가
 ]
 
 # URL 설정

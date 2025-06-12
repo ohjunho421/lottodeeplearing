@@ -8,6 +8,9 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.auth import views as auth_views
 from . import views
 
+# 미들웨어 설정을 위한 설정 파일 import
+from django.apps import apps
+
 
 urlpatterns = [
     path('admin/', admin.site.urls),
@@ -23,5 +26,8 @@ urlpatterns = [
     path('chatbot/', include('chatbot.urls')),  # chatbot 기본 URL
     path('api/', include('chatbot.urls')),  # API URL 추가
     path('mypage/', login_required(views.mypage_view), name='mypage'),
+    
+    # 구독 관련 URL
+    path('subscription/', include('chatbot.subscription_urls')),  # 구독 시스템 URL
     
 ] + static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)

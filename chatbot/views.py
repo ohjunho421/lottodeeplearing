@@ -103,17 +103,16 @@ class ChatAPIView(View):
             system_prompt = """
 안녕하세요! 로또 번호 추천 챗봇입니다.
 
-10년간의 로또당첨 번호를 머신러닝으로 예측하여
-두 가지 전략으로 번호를 추천해드릴 수 있습니다:
+세 가지 전략으로 번호를 추천해드릴 수 있습니다:
 
 전략 1. 평균적으로 자주 당첨된 번호 기반 추천
 전략 2. 앞으로 많이 나올 잠재력 있는 번호 기반 추천
+전략 3. ML(머신러닝) 모델 기반 추천
 
 원하시는 전략을 선택해주세요! 
-최대 5세트까지 추천 가능합니다.
 
-(예: "전략1로 3세트 추천해주세요" 또는 "전략1 3세트, 전략2 2세트 추천해주세요")
-"""
+최대 5세트까지 추천가능합니다.
+(예: "전략1로 3세트 추천해주세요" 또는 "전략1 2세트, 전략2 2세트, 전략3 1세트 추천해주세요")"""
             messages = [
                 {"role": "system", "content": system_prompt},
                 *self.conversation_history,
@@ -133,7 +132,7 @@ class ChatAPIView(View):
 
     def _process_strategy_counts(self, user_message):
         """Parse strategy counts from user message with enhanced flexibility"""
-        strategy_counts = {'1': 0, '2': 0}
+        strategy_counts = {'1': 0, '2': 0, '3': 0}
         
         try:
             message = user_message.lower()
@@ -146,6 +145,8 @@ class ChatAPIView(View):
             strategy1_patterns = ['전략1', '1번전략', '1번 전략', '1전략', '전략 1', '1 전략', '1번']
             # 전략2 패턴들  
             strategy2_patterns = ['전략2', '2번전략', '2번 전략', '2전략', '전략 2', '2 전략', '2번']
+            # 전략3 패턴들
+            strategy3_patterns = ['전략3', '3번전략', '3번 전략', '3전략', '전략 3', '3 전략', '3번']
             
             # 메시지 전체를 검색하여 모든 전략 패턴 찾기
             # 전략1 검색
@@ -238,6 +239,51 @@ class ChatAPIView(View):
                                         strategy_counts['2'] = count
                                     break
             
+            # 전략3 검색 - 위와 동일한 로직
+            for pattern in strategy3_patterns:
+                if pattern in processed_msg:
+                    # 패턴 주변에서 숫자 찾기
+                    idx = processed_msg.find(pattern)
+                    # 패턴 뒤쪽 문자열 추출
+                    after_pattern = processed_msg[idx + len(pattern):].strip()
+                    
+                    # 패턴에 붙어있는 숫자 확인 (예: "3번전략2개")
+                    next_char_idx = idx + len(pattern)
+                    if next_char_idx < len(processed_msg) and processed_msg[next_char_idx].isdigit():
+                        # 숫자가 붙어있는 경우
+                        digit_part = ""
+                        i = next_char_idx
+                        while i < len(processed_msg) and (processed_msg[i].isdigit() or processed_msg[i] in [' ', '개', '세', '트', 's', 'e', 't']):
+                            digit_part += processed_msg[i]
+                            i += 1
+                        
+                        digit = ''.join(filter(str.isdigit, digit_part))
+                        if digit:
+                            count = int(digit)
+                            if count > 5:
+                                exceed_limit = True
+                            else:
+                                strategy_counts['3'] = count
+                    else:
+                        # 패턴 뒤에 공백으로 분리된 숫자 찾기
+                        for word in after_pattern.split():
+                            if word.isdigit():
+                                count = int(word)
+                                if count > 5:
+                                    exceed_limit = True
+                                else:
+                                    strategy_counts['3'] = count
+                                break
+                            elif any(unit in word for unit in ['개', '세트', '셋트', 'set']):
+                                digit = ''.join(filter(str.isdigit, word))
+                                if digit:
+                                    count = int(digit)
+                                    if count > 5:
+                                        exceed_limit = True
+                                    else:
+                                        strategy_counts['3'] = count
+                                    break
+            
             # 단순히 "N개 추천해줘" 형태의 요청 처리 (기본값 전략1)
             if sum(strategy_counts.values()) == 0 and not exceed_limit:
                 for word in message.split():
@@ -252,7 +298,7 @@ class ChatAPIView(View):
                             break
             
             # 합계 계산 및 검증
-            total_sets = sum(strategy_counts.values())
+            total_sets = sum(int(count) for count in strategy_counts.values())
             if total_sets > 5:
                 exceed_limit = True
                 logger.warning(f"Total sets {total_sets} exceeds limit")
@@ -275,12 +321,15 @@ class ChatAPIView(View):
         # 전략별로 번호를 분류
         strategy1_sets = []
         strategy2_sets = []
+        strategy3_sets = []
         
         for strategy, numbers in recommendations:
             if strategy == 1:
                 strategy1_sets.append(f"□ {len(strategy1_sets)+1}세트: {', '.join(map(str, numbers))}")
-            else:
+            elif strategy == 2:
                 strategy2_sets.append(f"□ {len(strategy2_sets)+1}세트: {', '.join(map(str, numbers))}")
+            elif strategy == 3:
+                strategy3_sets.append(f"□ {len(strategy3_sets)+1}세트: {', '.join(map(str, numbers))}")
         
         formatted_message = ""
         
@@ -294,8 +343,8 @@ class ChatAPIView(View):
 
 ====================================""".format('\n'.join(strategy1_sets))
 
-        # 두 전략 모두 있으면 구분선 추가
-        if strategy1_sets and strategy2_sets:
+        # 전략 1과 다른 전략들 사이 구분선 추가
+        if strategy1_sets and (strategy2_sets or strategy3_sets):
             formatted_message += "\n\n"
 
         # 전략 2 결과가 있으면 추가
@@ -307,6 +356,20 @@ class ChatAPIView(View):
 {}
 
 ====================================""".format('\n'.join(strategy2_sets))
+        
+        # 전략 2와 전략 3 사이 구분선 추가
+        if strategy2_sets and strategy3_sets:
+            formatted_message += "\n\n"
+            
+        # 전략 3 결과가 있으면 추가
+        if strategy3_sets:
+            formatted_message += """[전략 3: ML 모델 기반 추천]
+
+====================================
+
+{}
+
+====================================""".format('\n'.join(strategy3_sets))
 
         # 행운 메시지 추가
         lucky_message = random.choice(self.lucky_messages)
@@ -336,7 +399,7 @@ class ChatAPIView(View):
                     
                     if total_sets > 5:
                         return JsonResponse({
-                            'response': '죄송합니다. 최대 5세트까지만 추천 가능합니다.\n전략1과 전략2를 조합해서 5세트를 추천해드릴까요?\n(예: "전략1 3세트, 전략2 2세트")'
+                            'response': '죄송합니다. 최대 5세트까지만 추천 가능합니다.\n전략1, 전략2, 전략3을 조합해서 5세트를 추천해드릴까요?\n(예: "전략1 2세트, 전략2 2세트, 전략3 1세트")'
                         }, status=200)
 
                     recommendations, error = get_recommendation(strategy_counts)

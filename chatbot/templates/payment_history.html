@@ -1,0 +1,58 @@
+{% extends 'base.html' %}
+
+{% block title %}결제 내역{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="row">
+        <div class="col-md-10 offset-md-1">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h3 class="mb-0">결제 내역</h3>
+                </div>
+                <div class="card-body">
+                    {% if payments %}
+                        <div class="table-responsive">
+                            <table class="table table-striped">
+                                <thead>
+                                    <tr>
+                                        <th>결제일</th>
+                                        <th>금액</th>
+                                        <th>결제 방법</th>
+                                        <th>상태</th>
+                                        <th>구독 기간</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for payment in payments %}
+                                    <tr>
+                                        <td>{{ payment.payment_date|date:"Y-m-d H:i" }}</td>
+                                        <td>{{ payment.amount|intcomma }}원</td>
+                                        <td>{{ payment.payment_method }}</td>
+                                        <td>
+                                            {% if payment.is_successful %}
+                                                <span class="badge bg-success">성공</span>
+                                            {% else %}
+                                                <span class="badge bg-danger">실패</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>{{ payment.subscription_period }}개월</td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% else %}
+                        <div class="alert alert-info">
+                            <p>결제 내역이 없습니다.</p>
+                        </div>
+                    {% endif %}
+                </div>
+                <div class="card-footer">
+                    <a href="{% url 'subscription_page' %}" class="btn btn-outline-primary">구독 관리로 돌아가기</a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

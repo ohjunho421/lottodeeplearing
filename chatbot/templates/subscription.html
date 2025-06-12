@@ -1,0 +1,146 @@
+{% extends 'base.html' %}
+
+{% block title %}구독 관리{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="row">
+        <div class="col-md-8 offset-md-2">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h3 class="mb-0">구독 관리</h3>
+                </div>
+                <div class="card-body">
+                    {% if profile.is_premium %}
+                        <div class="alert alert-success">
+                            <h4 class="alert-heading">프리미엄 계정</h4>
+                            <p>귀하는 프리미엄 계정을 사용 중입니다. 모든 기능을 구독 없이 이용하실 수 있습니다.</p>
+                        </div>
+                    {% elif is_active %}
+                        <div class="alert alert-info">
+                            <h4 class="alert-heading">현재 구독 중</h4>
+                            <p>귀하의 구독은 <strong>{{ end_date }}</strong>까지 유효합니다.</p>
+                        </div>
+                        <form method="post" action="{% url 'cancel_subscription' %}" class="mt-3" onsubmit="return confirm('정말 구독을 취소하시겠습니까? 기간이 끝날 때까지는 서비스를 이용하실 수 있습니다.')">
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn-warning">구독 취소</button>
+                        </form>
+                    {% else %}
+                        <div class="alert alert-warning">
+                            <h4 class="alert-heading">구독 필요</h4>
+                            <p>로또봇의 모든 기능을 이용하시려면 구독이 필요합니다.</p>
+                        </div>
+                        
+                        <div class="pricing-box mt-4 mb-4 p-4 border rounded">
+                            <h3 class="text-center">월 구독 플랜</h3>
+                            <h1 class="text-center price">₩30,000<small>/월</small></h1>
+                            <ul class="list-unstyled mt-3 mb-4">
+                                <li><i class="fas fa-check text-success"></i> 무제한 로또 번호 추천</li>
+                                <li><i class="fas fa-check text-success"></i> 개인 맞춤형 번호 분석</li>
+                                <li><i class="fas fa-check text-success"></i> 당첨 확률 분석</li>
+                                <li><i class="fas fa-check text-success"></i> 당첨 내역 자동 확인</li>
+                                <li><i class="fas fa-check text-success"></i> 고급 통계 분석</li>
+                            </ul>
+                            
+                            <div class="text-center">
+                                <button id="payment-button" class="btn btn-lg btn-primary"
+                                    data-merchant-uid="{{ merchant_uid }}"
+                                    data-amount="{{ amount }}"
+                                    data-email="{{ request.user.email }}"
+                                    data-username="{{ request.user.username }}"
+                                    data-csrf-token="{{ csrf_token }}"
+                                    data-process-url="{% url 'process_payment' %}"
+                                >구독 시작하기</button>
+                            </div>
+                        </div>
+                    {% endif %}
+                </div>
+                <div class="card-footer">
+                    <a href="{% url 'payment_history' %}" class="btn btn-outline-secondary">결제 내역 보기</a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% if not profile.is_premium and not is_active %}
+<!-- 결제 스크립트 -->
+<script type="text/javascript" src="https://cdn.iamport.kr/js/iamport.payment-1.1.8.js"></script>
+
+<!-- 결제 기능 구현 -->
+<script type="text/javascript">
+(function() {
+    document.addEventListener('DOMContentLoaded', function() {
+        // 아임포트 초기화
+        var IMP = window.IMP;
+        IMP.init('iamport');
+        
+        // 결제 버튼 참조
+        var paymentButton = document.getElementById('payment-button');
+        
+        // 버튼이 존재하면 클릭 이벤트 등록
+        if (paymentButton) {
+            paymentButton.addEventListener('click', function() {
+                // 버튼의 data 속성에서 값 가져오기
+                var merchantUid = paymentButton.getAttribute('data-merchant-uid');
+                var amount = parseInt(paymentButton.getAttribute('data-amount'));
+                var email = paymentButton.getAttribute('data-email');
+                var username = paymentButton.getAttribute('data-username');
+                var csrfToken = paymentButton.getAttribute('data-csrf-token');
+                var processUrl = paymentButton.getAttribute('data-process-url');
+                
+                // 결제 요청 정보
+                var paymentData = {
+                    pg: 'html5_inicis',
+                    pay_method: 'card',
+                    merchant_uid: merchantUid,
+                    name: '로또봇 월 구독',
+                    amount: amount,
+                    buyer_email: email,
+                    buyer_name: username,
+                    buyer_tel: '',
+                    buyer_addr: '',
+                    buyer_postcode: ''
+                };
+                
+                // 결제 요청
+                IMP.request_pay(paymentData, function(rsp) {
+                    if (rsp.success) {
+                        // 결제 성공 시 서버에 데이터 전송
+                        fetch(processUrl, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'X-CSRFToken': csrfToken
+                            },
+                            body: JSON.stringify({
+                                imp_uid: rsp.imp_uid,
+                                merchant_uid: rsp.merchant_uid
+                            })
+                        })
+                        .then(function(response) {
+                            return response.json();
+                        })
+                        .then(function(data) {
+                            if (data.status === 'success') {
+                                alert('구독이 성공적으로 등록되었습니다.');
+                                window.location.reload();
+                            } else {
+                                alert('서버 처리 중 오류가 발생했습니다: ' + data.message);
+                            }
+                        })
+                        .catch(function(error) {
+                            console.error('Error:', error);
+                            alert('결제 처리 중 오류가 발생했습니다.');
+                        });
+                    } else {
+                        alert('결제에 실패했습니다: ' + rsp.error_msg);
+                    }
+                });
+            });
+        }
+    });
+})();
+</script>
+{% endif %}
+{% endblock %}

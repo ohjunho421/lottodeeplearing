@@ -4,6 +4,7 @@ import numpy as np
 import pandas as pd
 import requests
 import json
+import time
 from bs4 import BeautifulSoup
 from django.conf import settings
 import tensorflow as tf
@@ -722,10 +723,47 @@ def update_prediction_cache():
         weights2 = weights2 / np.sum(weights2)
         strategy_weights_cache[2] = weights2
         
+        # 전략 3: XGB와 Random Forest 모델 직접 사용 (평균 기준 없음)
+        # ML 모델의 예측 확률을 직접 가중치로 사용
+        xgb_weights = predicted_probs_cache.copy()  # XGB 모델의 예측 확률
+        
+        # Random Forest 가중치 확인
+        rf_weights = np.ones(45) * 0.01
+        if hasattr(shared_predictor, 'rf_model') and shared_predictor.rf_model is not None:
+            try:
+                # 특성 데이터 준비
+                latest_features = shared_predictor.prepare_features(df)[:1]
+                latest_features_scaled = shared_predictor.scaler.transform(latest_features)
+                
+                # RandomForestRegressor는 predict_proba 대신 predict 사용
+                rf_pred = shared_predictor.rf_model.predict(latest_features_scaled)
+                
+                # 각 번호에 대한 예측 점수 생성
+                if len(rf_pred.shape) > 1 and rf_pred.shape[1] == 45:
+                    # 이미 각 번호별 점수가 있는 경우
+                    rf_weights = rf_pred[0]
+                elif len(rf_pred.shape) == 1 and rf_pred.shape[0] == 45:
+                    # 1차원 배열인 경우
+                    rf_weights = rf_pred
+                else:
+                    # 다른 형식의 예측인 경우, 기본 가중치 사용
+                    logger.warning(f"RandomForest 예측 형식이 예상과 다릅니다 (shape: {rf_pred.shape}). 기본 가중치를 사용합니다.")
+            except Exception as e:
+                logger.error(f"Random Forest 예측 중 오류 발생: {str(e)}")
+        
+        # 가중치 정규화
+        rf_weights = rf_weights / np.sum(rf_weights)
+        
+        # XGB와 RF 모델의 예측 결합
+        weights3 = 0.6 * xgb_weights + 0.4 * rf_weights
+        weights3 = weights3 / np.sum(weights3)
+        strategy_weights_cache[3] = weights3
+        
         # 미리 추천 번호를 생성해 캐시에 저장
         precalculated_recommendations = {
             1: [_generate_recommendation(1, i) for i in range(10)],
-            2: [_generate_recommendation(2, i) for i in range(10)]
+            2: [_generate_recommendation(2, i) for i in range(10)],
+            3: [_generate_recommendation(3, i) for i in range(10)]
         }
         
         last_updated = time.time()  # 현재 시간으로 업데이트
@@ -757,7 +795,8 @@ def _generate_recommendation(strategy, seed=None):
         
         # 시드 설정
         if seed is not None:
-            np.random.seed(int(time.time()) + seed)
+            current_time = int(time.time()) if 'time' in globals() else 0
+            np.random.seed(current_time + seed)
         
         # 최종 가중치 계산 (LLM 호출 없이 빠르게 계산)
         final_weights = stat_ml_weights
@@ -1057,12 +1096,18 @@ def get_llm_weights(df, predicted_probs, frequency_data, temporal_patterns, prev
                 "전략 1은 '핫 넘버(Hot Number)' 전략으로, 과거에 평균보다 더 자주 나온 번호를 선호합니다. "
                 "평균 빈도는 {:.2f}이며, 이보다 높은 빈도를 가진 번호에 더 높은 가중치를 부여해야 합니다."
             ).format(mean_freq)
-        else:
+        elif strategy_int == 2:
             strategy_description = (
                 "전략 2는 '쿨링 다운(Cooling Down)' 전략으로, 평균~평균-표준편차 범위의 번호 중 상승 추세를 보이는 번호를 선호합니다. "
                 "평균 빈도는 {:.2f}, 표준편차는 {:.2f}이며, 평균-표준편차({:.2f})와 평균 사이의 빈도를 가진 번호를 선호합니다. "
                 "특히 상승 추세(trend > 1)를 보이는 번호에 더 높은 가중치를 부여해야 합니다."
             ).format(mean_freq, std_freq, mean_freq - std_freq)
+        else:
+            strategy_description = (
+                "전략 3은 '머신러닝 직접 예측(ML Direct Prediction)' 전략으로, XGBoost와 Random Forest 모델의 예측을 기반으로 합니다. "
+                "이 전략은 평균이나 표준편차와 같은 통계적 임계값을 사용하지 않고, 머신러닝 모델이 직접 예측한 확률을 가중치로 사용합니다. "
+                "XGBoost가 60%, Random Forest가 40%의 비중으로 최종 가중치에 반영됩니다."
+            )
 
         # LLM에 전송할 프롬프트 생성
         prompt = {

@@ -84,6 +84,7 @@ precalculated_recommendations = {}
 
 # 병렬 처리를 위한 스레드풀
 from concurrent.futures import ThreadPoolExecutor
+from feature_engineering import analyze_lotto_history
 thread_pool = ThreadPoolExecutor(max_workers=4)
 
 class LottoDataCollector:
@@ -242,24 +243,30 @@ class AdvancedLottoPredictor:
             
             features = []
             
+            # 사용할 피처 컬럼 정의
+            feature_columns = [
+                'sum', 'odd_count', 'even_count', 'low_count', 'high_count',
+                'consecutive_count', 'prime_count', 'month', 'day_of_week', 'week_of_year'
+            ]
+            # 끝수 및 번호대 피처 추가
+            for i in range(10):
+                feature_columns.append(f'ending_{i}')
+            for r in ['1_10', '11_20', '21_30', '31_40', '41_45']:
+                feature_columns.append(f'range_{r}')
+
+            # 데이터프레임에 해당 피처들이 모두 있는지 확인하고 없는 경우 0으로 채움
+            for col in feature_columns:
+                if col not in df.columns:
+                    df[col] = 0
+
             # 최근 5회차 데이터를 사용하여 특성 생성
-            for i in range(len(df) - 5):  # 마지막 5회차는 제외
-                recent_numbers = []
+            for i in range(len(df) - 5):
+                feature_set = []
                 for j in range(5):
-                    row = df.iloc[i + j]
-                    numbers = [row[str(k)] for k in range(1, 7)]  # 1~6번 번호
-                    numbers.append(row['보너스'])  # 보너스 번호 추가
-                    recent_numbers.extend(numbers)
-                
-                # 시간적 특성 추가
-                current_row = df.iloc[i]
-                time_features = [
-                    current_row['month'],
-                    current_row['day_of_week'],
-                    current_row['week_of_year']
-                ]
-                recent_numbers.extend(time_features)
-                features.append(recent_numbers)
+                    # 각 회차의 피처를 가져옴
+                    row_features = df.loc[df.index[i + j], feature_columns].values.tolist()
+                    feature_set.extend(row_features)
+                features.append(feature_set)
 
             features = np.array(features)
             logger.info(f"Generated features shape: {features.shape}")
@@ -394,11 +401,20 @@ class AdvancedLottoPredictor:
     def train_models(self):
         """모든 모델 학습"""
         try:
-            if not os.path.exists(settings.LOTTO_DATA_FILE):
-                logger.error("데이터 파일이 존재하지 않습니다")
+            # 피처 엔지니어링 실행하여 최신 데이터 생성
+            try:
+                analyze_lotto_history(settings.BASE_DIR)
+                logger.info("피처 엔지니어링 완료.")
+            except Exception as e:
+                logger.error(f"피처 엔지니어링 중 오류 발생: {e}")
                 return False, None
 
-            df = pd.read_csv(settings.LOTTO_DATA_FILE)
+            featured_data_file = os.path.join(settings.BASE_DIR, 'data', 'lotto_history_featured.csv')
+            if not os.path.exists(featured_data_file):
+                logger.error("피처 데이터 파일이 존재하지 않습니다")
+                return False, None
+
+            df = pd.read_csv(featured_data_file)
             df = df.sort_values('회차', ascending=False).reset_index(drop=True)
             
             if len(df) < 6:
@@ -529,10 +545,17 @@ class AdvancedLottoPredictor:
         """번호 예측"""
         try:
             if not self.load_models():
-                if not self.train_models():
-                    return np.ones(45) / 45  # 균등 확률 반환
+                _,_ = self.train_models()
+                if not self.load_models():
+                    logger.error("모델 학습 및 로드 실패. 예측을 중단합니다.")
+                    return np.ones(45) / 45
 
-            df = pd.read_csv(settings.LOTTO_DATA_FILE)
+            featured_data_file = os.path.join(settings.BASE_DIR, 'data', 'lotto_history_featured.csv')
+            if not os.path.exists(featured_data_file):
+                logger.error("피처 데이터 파일이 존재하지 않아 예측을 수행할 수 없습니다.")
+                return np.ones(45) / 45
+
+            df = pd.read_csv(featured_data_file)
             df = df.sort_values('회차', ascending=False).reset_index(drop=True)
             
             # 시간적 특성 추가
@@ -673,12 +696,17 @@ def update_prediction_cache():
     global temporal_patterns_cache, last_updated, precalculated_recommendations
     
     try:
-        if not os.path.exists(settings.LOTTO_DATA_FILE):
-            logger.info("데이터 파일이 없습니다. 초기 데이터를 수집합니다.")
-            collector = LottoDataCollector()
-            collector.collect_initial_data()
+        featured_data_file = os.path.join(settings.BASE_DIR, 'data', 'lotto_history_featured.csv')
+        if not os.path.exists(featured_data_file):
+            logger.info("피처 데이터 파일이 없습니다. 피처 엔지니어링을 실행합니다.")
+            try:
+                analyze_lotto_history(settings.BASE_DIR)
+                logger.info("피처 엔지니어링 완료.")
+            except Exception as e:
+                logger.error(f"피처 엔지니어링 중 오류 발생: {e}")
+                return False
 
-        df = pd.read_csv(settings.LOTTO_DATA_FILE)
+        df = pd.read_csv(featured_data_file)
         
         # 번호별 출현 빈도 분석
         all_numbers = []
@@ -948,6 +976,16 @@ def get_recommendation(strategy_counts):
         logger.info(f"전략 카운트: {strategy_counts_int}")
         
         # 빠른 응답을 위한 병렬 처리 사용
+        feature_columns = [
+            'sum', 'odd_count', 'even_count', 'low_count', 'high_count', 
+            'consecutive_count', 'prime_count'
+        ] 
+        # 끝수 및 번호대 피처 추가
+        for i in range(10):
+            feature_columns.append(f'ending_{i}')
+        for r in ['1_10', '11_20', '21_30', '31_40', '41_45']:
+            feature_columns.append(f'range_{r}')
+
         futures = []
         
         for strategy, count in strategy_counts_int.items():

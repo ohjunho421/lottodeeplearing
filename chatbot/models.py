@@ -31,7 +31,7 @@ class Recommendation(models.Model):
     is_won = models.BooleanField(default=False)  # 당첨 여부
     draw_round = models.IntegerField(null=True)  # 해당 회차
     draw_date = models.DateField(null=True)  # 추첨일
-    matched_count = models.IntegerField(null=True)  # 맞춘 개수
+    matched_count = models.IntegerField(default=0)  # 맞춘 번호 개수
     has_bonus = models.BooleanField(default=False)  # 보너스 번호 일치 여부
     rank = models.IntegerField(null=True)  # 당첨 순위 (1~5, 0은 낙첨)
 

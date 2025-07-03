@@ -23,7 +23,8 @@ urlpatterns = [
     path("api/accounts/", include("accounts.urls", namespace="accounts")),
     # 메인 페이지와 다른 기능들
     path('main/', login_required(views.main_view), name='main'),
-    path('chatbot/', include('chatbot.urls')),  # chatbot 기본 URL
+    path('chatbot/', include('chatbot.urls')),  # Chatbot UI
+    path('api/chatbot/', include('chatbot.api_urls')),  # API URLs
     path('mypage/', login_required(views.mypage_view), name='mypage'),
     
     # 구독 관련 URL

@@ -10,25 +10,15 @@ from django.views.decorators.csrf import csrf_exempt
 from django.utils.decorators import method_decorator
 from django.middleware.csrf import get_token
 from django.conf import settings
-from django.contrib.auth.decorators import login_required  # 추가
-from chatbot.services import get_recommendation, check_data_status
-from .models import Recommendation  # 추가: Recommendation 모델 import
-from rest_framework.views import APIView  # 추가
-from rest_framework.response import Response  # 추가
-from rest_framework.permissions import IsAuthenticated  # 추가
-from rest_framework import status  # 추가
-from chatbot.services import get_recommendation, check_data_status
-from .models import Recommendation, LottoDraw  # LottoDraw 추가
-from .serializers import RecommendationSerializer  # 추가
+from django.contrib.auth.decorators import login_required
+from rest_framework import status
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from rest_framework.permissions import AllowAny  # 추가
+from rest_framework.permissions import AllowAny, IsAuthenticated
 
-from .services import (
-    get_recommendation, 
-    check_data_status,
-    AdvancedLottoPredictor 
-)
+from .models import Recommendation, LottoDraw
+from .serializers import RecommendationSerializer
+from .services import get_recommendation, AdvancedLottoPredictor
 
 logger = logging.getLogger(__name__)
 
@@ -67,14 +57,7 @@ class CSRFTokenView(View):
         csrf_token = get_token(request)
         return JsonResponse({'csrfToken': csrf_token})
 
-class DataStatusView(View):
-    """View for checking data status"""
-    def get(self, request, *args, **kwargs):
-        success, message = check_data_status()
-        return JsonResponse({
-            'success': success,
-            'message': message
-        })
+
 
 @method_decorator(csrf_exempt, name='dispatch')
 class ChatAPIView(View):
@@ -476,33 +459,13 @@ class HistoryAPIView(APIView):
             return 0  # 낙첨: 2개 이하 일치
     
     def get(self, request):
+        from .services import check_winning_numbers
         try:
-            latest_draw = LottoDraw.objects.order_by('-round_no').first()
+            # 추천 번호 당첨 여부 확인 및 업데이트
+            check_winning_numbers()
+
             recommendations = Recommendation.objects.filter(user=request.user).order_by('-recommendation_date')
-            
-            if latest_draw:
-                latest_numbers = list(map(int, latest_draw.winning_numbers.split(',')))
-                bonus_number = latest_draw.bonus_number
-                
-                # 확인하지 않은 추천번호들 업데이트
-                for rec in recommendations:
-                    if not rec.is_checked:
-                        rec_numbers = list(map(int, rec.numbers.split(',')))
-                        matched_count = len(set(rec_numbers) & set(latest_numbers))
-                        has_bonus = bonus_number in rec_numbers  # 보너스 번호 일치 여부
-                        
-                        # 당첨 순위 확인
-                        rank = self.get_winning_rank(matched_count, has_bonus)
-                        
-                        # 3개 이상 맞으면 당첨
-                        rec.is_won = matched_count >= 3
-                        rec.is_checked = True
-                        rec.draw_round = latest_draw.round_no
-                        rec.draw_date = latest_draw.draw_date
-                        rec.matched_count = matched_count  # 맞춘 개수 저장
-                        rec.has_bonus = has_bonus  # 보너스 번호 일치 여부 저장
-                        rec.rank = rank  # 당첨 순위 저장
-                        rec.save()
+            latest_draw = LottoDraw.objects.order_by('-round_no').first()
 
             serializer = RecommendationSerializer(recommendations, many=True)
             

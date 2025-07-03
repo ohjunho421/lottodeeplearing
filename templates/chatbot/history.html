@@ -35,7 +35,7 @@
                     <td class="p-2">전략 {{ rec.strategy }}</td>
                     <td class="p-2">{{ rec.numbers }}</td>
                     <td class="p-2">
-                        {% if rec.matched_count is not None %}
+                        {% if rec.matched_count is not None and rec.matched_count >= 0 %}
                             <span class="{% if rec.matched_count >= 3 %}text-green-600 font-bold{% endif %}">
                                 {{ rec.matched_count }}개
                             </span>

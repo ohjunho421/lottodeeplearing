@@ -19,12 +19,18 @@ LOTTO_DATA_FILE = os.path.join(LOTTO_DATA_DIR, "lotto_history.csv")
 OPENAI_API_KEY = os.getenv("OPEN_API_KEY")
 
 # 기본 Django 설정
-SECRET_KEY = os.getenv("DJANGO_SECRET_KEY")
-DEBUG = True
-ALLOWED_HOSTS = []
+SECRET_KEY = os.getenv("DJANGO_SECRET_KEY", "django-insecure-fallback-key-for-deployment-only")
+DEBUG = False
+ALLOWED_HOSTS = ['*']
 
 # CSRF 설정
-CSRF_TRUSTED_ORIGINS = ["http://127.0.0.1:8000", "http://localhost:3000","http://127.0.0.1:5000", "http://localhost:5000"]
+CSRF_TRUSTED_ORIGINS = [
+    "http://127.0.0.1:8000", 
+    "http://localhost:3000",
+    "http://127.0.0.1:5000", 
+    "http://localhost:5000",
+    "https://*.vercel.app"
+]
 
 
 # 애플리케이션 정의
@@ -66,7 +72,7 @@ MIDDLEWARE = [
 ]
 
 # URL 설정
-ROOT_URLCONF = "Lottobot.urls"
+ROOT_URLCONF = "lottobot.urls"
 
 # 템플릿 설정
 TEMPLATES = [

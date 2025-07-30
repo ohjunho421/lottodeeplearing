@@ -7,6 +7,7 @@ from django.shortcuts import render, redirect
 from django.contrib import messages
 from django.contrib.auth import login
 from accounts.forms import CustomUserCreationForm
+from django.http import HttpResponse
 
 def register_view(request):
     if request.method == 'POST':
@@ -60,3 +61,7 @@ def mypage_view(request):
         'recommendations': recommendations
     }
     return render(request, 'chatbot/history.html', context)
+
+def health_check(request):
+    """Simple health check endpoint for Railway deployment"""
+    return HttpResponse("OK", status=200)

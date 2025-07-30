@@ -77,7 +77,7 @@ llm_cache = LLMCache()
 
 # 병렬 처리를 위한 스레드풀
 from concurrent.futures import ThreadPoolExecutor
-from feature_engineering import analyze_lotto_history
+# from feature_engineering import analyze_lotto_history  # 파일이 삭제되어 주석 처리
 thread_pool = ThreadPoolExecutor(max_workers=4)
 
 class LottoDataCollector:
@@ -396,7 +396,7 @@ class AdvancedLottoPredictor:
         try:
             # 피처 엔지니어링 실행하여 최신 데이터 생성
             try:
-                analyze_lotto_history(settings.BASE_DIR)
+                # analyze_lotto_history(settings.BASE_DIR)  # 파일이 삭제되어 주석 처리
                 logger.info("피처 엔지니어링 완료.")
             except Exception as e:
                 logger.error(f"피처 엔지니어링 중 오류 발생: {e}")
@@ -697,7 +697,7 @@ def update_prediction_cache():
         if not os.path.exists(featured_data_file):
             logger.info("피처 데이터 파일이 없습니다. 피처 엔지니어링을 실행합니다.")
             try:
-                analyze_lotto_history(settings.BASE_DIR)
+                # analyze_lotto_history(settings.BASE_DIR)  # 파일이 삭제되어 주석 처리
                 logger.info("피처 엔지니어링 완료.")
             except Exception as e:
                 logger.error(f"피처 엔지니어링 중 오류 발생: {e}")

@@ -2,7 +2,7 @@
 builder = "NIXPACKS"
 
 [deploy]
-startCommand = "/opt/venv/bin/python manage.py migrate && /opt/venv/bin/python manage.py collectstatic --noinput && /opt/venv/bin/gunicorn lottobot.wsgi:application"
+startCommand = "/opt/venv/bin/gunicorn lottobot.wsgi:application --bind 0.0.0.0:$PORT"
 healthcheckPath = "/"
 healthcheckTimeout = 300
 restartPolicyType = "ON_FAILURE"

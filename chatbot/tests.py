@@ -29,15 +29,15 @@ from django.test import TestCase
             # 대화 히스토리에 사용자 메시지 추가
             self.conversation_history.append({"role": "user", "content": user_message})
 
-            # GPT에 대화 요청
-            response = openai.chat.completions.create(
-                model="gpt-3.5-turbo",
-                messages=[
-                    {"role": "system", "content": system_prompt},
-                    *self.conversation_history
-                ],
-                temperature=0.7
-            )
+            # Gemini로 대체 예정 - 임시로 주석 처리
+            # response = openai.chat.completions.create(
+            #     model="gpt-3.5-turbo",
+            #     messages=[
+            #         {"role": "system", "content": system_prompt},
+            #         *self.conversation_history
+            #     ],
+            #     temperature=0.7
+            # )
 
             # GPT 응답 분석
             assistant_message = response.choices[0].message.content

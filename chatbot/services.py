@@ -25,8 +25,8 @@ from stable_baselines3.common.vec_env import DummyVecEnv
 logger = logging.getLogger(__name__)
 
 # LLM API 관련 설정
-LLM_API_KEY = os.environ.get("OPENAI_API_KEY")  # OpenAI API 키 가져오기
-LLM_API_URL = "https://api.openai.com/v1/chat/completions"  # OpenAI API URL
+LLM_API_KEY = os.environ.get("GEMINI_API_KEY")  # Gemini API 키 가져오기
+# Gemini는 google-generativeai 라이브러리를 통해 직접 사용하므로 URL 불필요
 
 class LLMCache:
     def __init__(self, cache_file=None, max_age_hours=24):
@@ -1044,7 +1044,7 @@ def get_llm_weights(df, predicted_probs, frequency_data, temporal_patterns, prev
     """
     try:
         if not LLM_API_KEY:
-            logger.warning("OpenAI API 키가 설정되지 않았습니다. 랜덤 가중치를 반환합니다.")
+            logger.warning("Gemini API 키가 설정되지 않았습니다. 랜덤 가중치를 반환합니다.")
             return np.random.random(45)
 
         # frequency_data가 None이면 빈 딕셔너리로 설정

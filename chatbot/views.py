@@ -2,7 +2,7 @@
 import json
 import logging
 import random
-from openai import OpenAI, APIError, RateLimitError, APITimeoutError
+import google.generativeai as genai
 from django.http import JsonResponse
 from django.views import View
 from django.views.generic import TemplateView
@@ -80,9 +80,12 @@ class ChatAPIView(View):
         ]
 
     def _get_gpt_response(self, user_message):
-        """Get response from GPT API"""
+        """Get response from Gemini 2.5 Pro API"""
         try:
-            client = OpenAI(api_key=settings.OPENAI_API_KEY)
+            # Gemini API 설정
+            genai.configure(api_key=settings.GEMINI_API_KEY)
+            model = genai.GenerativeModel('gemini-2.5-pro')
+            
             system_prompt = """
 안녕하세요! 로또 번호 추천 챗봇입니다.
 
@@ -95,22 +98,22 @@ class ChatAPIView(View):
 원하시는 전략을 선택해주세요! 
 
 최대 5세트까지 추천가능합니다.
-(예: "전략1로 3세트 추천해주세요" 또는 "전략1 2세트, 전략2 2세트, 전략3 1세트 추천해주세요")"""
-            messages = [
-                {"role": "system", "content": system_prompt},
-                *self.conversation_history,
-                {"role": "user", "content": user_message}
-            ]
-
-            response = client.chat.completions.create(
-                model="gpt-4o",
-                messages=messages,
-                temperature=0.7
-            )
-            return response.choices[0].message.content
+(예: "전략1로 3세트 추천해주세요" 또는 "전략1 2세트, 전략2 2세트, 전략3 1세트 추천해주세요")
+"""
+            
+            # 대화 기록을 포함한 전체 프롬프트 구성
+            conversation_text = ""
+            for msg in self.conversation_history:
+                role = "사용자" if msg["role"] == "user" else "챗봇"
+                conversation_text += f"{role}: {msg['content']}\n"
+            
+            full_prompt = f"{system_prompt}\n\n대화 기록:\n{conversation_text}\n사용자: {user_message}"
+            
+            response = model.generate_content(full_prompt)
+            return response.text
             
         except Exception as e:
-            logger.error(f"GPT Error: {str(e)}")
+            logger.error(f"Gemini Error: {str(e)}")
             raise Exception("죄송합니다. 서버 연결에 문제가 발생했습니다.")
 
     def _process_strategy_counts(self, user_message):

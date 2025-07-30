@@ -16,7 +16,7 @@ os.makedirs(LOTTO_DATA_DIR, exist_ok=True)
 LOTTO_DATA_FILE = os.path.join(LOTTO_DATA_DIR, "lotto_history.csv")
 
 # API 키 가져오기
-OPENAI_API_KEY = os.getenv("OPEN_API_KEY")
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 
 # 기본 Django 설정
 SECRET_KEY = os.getenv("DJANGO_SECRET_KEY", "django-insecure-fallback-key-for-deployment-only")

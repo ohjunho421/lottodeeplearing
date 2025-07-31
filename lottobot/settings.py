@@ -23,7 +23,7 @@ SECRET_KEY = os.getenv("DJANGO_SECRET_KEY", "django-insecure-fallback-key-for-de
 DEBUG = False
 ALLOWED_HOSTS = ['*']
 
-# CSRF 설정
+# CSRF 설정 - Railway 배포용
 CSRF_TRUSTED_ORIGINS = [
     "http://127.0.0.1:8000", 
     "http://localhost:3000",
@@ -34,11 +34,20 @@ CSRF_TRUSTED_ORIGINS = [
     "https://*.up.railway.app"
 ]
 
+# CSRF 디버그 로깅
+import logging
+logger = logging.getLogger(__name__)
+logger.info(f"CSRF_TRUSTED_ORIGINS loaded: {CSRF_TRUSTED_ORIGINS}")
+
 # CSRF 추가 설정 (Railway 배포용)
 CSRF_COOKIE_SECURE = True  # HTTPS에서만 CSRF 쿠키 전송
 CSRF_COOKIE_HTTPONLY = True  # JavaScript에서 CSRF 쿠키 접근 방지
 CSRF_USE_SESSIONS = False  # 세션 대신 쿠키 사용
 CSRF_COOKIE_SAMESITE = 'Lax'  # SameSite 정책
+
+# CSRF 미들웨어 설정 강제 적용
+CSRF_FAILURE_VIEW = 'django.views.csrf.csrf_failure'
+CSRF_COOKIE_AGE = 31449600  # 1년
 
 
 # 애플리케이션 정의

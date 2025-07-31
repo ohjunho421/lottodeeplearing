@@ -20,7 +20,7 @@ GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "fallback-key-for-deployment")
 
 # 기본 Django 설정
 SECRET_KEY = os.getenv("DJANGO_SECRET_KEY", "django-insecure-fallback-key-for-deployment-only")
-DEBUG = False
+DEBUG = True  # 디버그 모드 활성화 - CSRF 문제 진단용
 ALLOWED_HOSTS = ['*']
 
 # CSRF 설정 - Railway 배포용 (더 포괄적 설정)

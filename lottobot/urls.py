@@ -6,6 +6,7 @@ from django.conf import settings
 from django.conf.urls.static import static
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth import views as auth_views
+from django.views.generic import RedirectView
 from . import views
 
 # 미들웨어 설정을 위한 설정 파일 import
@@ -14,8 +15,10 @@ from django.apps import apps
 
 urlpatterns = [
     path('admin/', admin.site.urls),
+    # Root URL redirects to login
+    path('', RedirectView.as_view(url='/login/', permanent=False), name='home'),
     # Health check endpoint for Railway
-    path('', views.health_check, name='health_check'),
+    path('health/', views.health_check, name='health_check'),
     # 로그인/로그아웃/회원가입 URL
     path('login/', auth_views.LoginView.as_view(template_name='registration/login.html'), name='login'),
     path('logout/', auth_views.LogoutView.as_view(next_page='login'), name='logout'),

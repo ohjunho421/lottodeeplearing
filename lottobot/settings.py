@@ -29,7 +29,9 @@ CSRF_TRUSTED_ORIGINS = [
     "http://localhost:3000",
     "http://127.0.0.1:5000", 
     "http://localhost:5000",
-    "https://*.vercel.app"
+    "https://*.vercel.app",
+    "https://lottobot-production.up.railway.app",
+    "https://*.up.railway.app"
 ]
 
 

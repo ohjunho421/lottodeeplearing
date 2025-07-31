@@ -82,6 +82,11 @@ class ChatAPIView(View):
     def _get_gpt_response(self, user_message):
         """Get response from Gemini 2.5 Pro API"""
         try:
+            # Gemini API 키 확인
+            if not settings.GEMINI_API_KEY or settings.GEMINI_API_KEY == "fallback-key-for-deployment":
+                logger.warning("Gemini API 키가 설정되지 않았습니다. 기본 응답을 반환합니다.")
+                return "안녕하세요! 로또 번호 추천 챗봇입니다. 현재 API 설정 중입니다. 전략 1, 2, 3 중 선택해주세요!"
+            
             # Gemini API 설정
             genai.configure(api_key=settings.GEMINI_API_KEY)
             model = genai.GenerativeModel('gemini-2.5-pro')

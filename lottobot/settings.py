@@ -34,6 +34,12 @@ CSRF_TRUSTED_ORIGINS = [
     "https://*.up.railway.app"
 ]
 
+# CSRF 추가 설정 (Railway 배포용)
+CSRF_COOKIE_SECURE = True  # HTTPS에서만 CSRF 쿠키 전송
+CSRF_COOKIE_HTTPONLY = True  # JavaScript에서 CSRF 쿠키 접근 방지
+CSRF_USE_SESSIONS = False  # 세션 대신 쿠키 사용
+CSRF_COOKIE_SAMESITE = 'Lax'  # SameSite 정책
+
 
 # 애플리케이션 정의
 INSTALLED_APPS = [

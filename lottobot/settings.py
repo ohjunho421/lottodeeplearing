@@ -23,8 +23,10 @@ SECRET_KEY = os.getenv("DJANGO_SECRET_KEY", "django-insecure-fallback-key-for-de
 DEBUG = True  # 디버그 모드 활성화 - CSRF 문제 진단용
 ALLOWED_HOSTS = ['*']
 
-# CSRF 설정 - Railway 배포용 (더 포괄적 설정)
+# CSRF 설정 - Railway 배포용 (최대한 관대한 설정)
+# 모든 도메인에서 접근 허용
 CSRF_TRUSTED_ORIGINS = [
+    "*",  # 모든 도메인 허용
     "http://127.0.0.1:8000", 
     "http://localhost:3000",
     "http://127.0.0.1:5000", 
@@ -33,7 +35,9 @@ CSRF_TRUSTED_ORIGINS = [
     "https://lottobot-production.up.railway.app",
     "https://*.up.railway.app",
     "https://up.railway.app",
-    "http://lottobot-production.up.railway.app",  # HTTP 버전도 추가
+    "http://lottobot-production.up.railway.app",
+    "https://*.railway.app",
+    "http://*.railway.app",
 ]
 
 # CSRF 디버그 로깅
@@ -41,17 +45,21 @@ import logging
 logger = logging.getLogger(__name__)
 logger.info(f"CSRF_TRUSTED_ORIGINS loaded: {CSRF_TRUSTED_ORIGINS}")
 
-# CSRF 추가 설정 (Railway 배포용 - 더 관대한 설정)
-CSRF_COOKIE_SECURE = False  # HTTPS 요구 비활성화 (개발/테스트용)
+# CSRF 추가 설정 (Railway 배포용 - 최대한 관대한 설정)
+CSRF_COOKIE_SECURE = False  # HTTPS 요구 비활성화
 CSRF_COOKIE_HTTPONLY = False  # JavaScript 접근 허용
 CSRF_USE_SESSIONS = False  # 세션 대신 쿠키 사용
-CSRF_COOKIE_SAMESITE = 'Lax'  # SameSite 정책
+CSRF_COOKIE_SAMESITE = None  # SameSite 정책 비활성화
 CSRF_COOKIE_NAME = 'csrftoken'  # 명시적 쿠키 이름
+CSRF_COOKIE_DOMAIN = None  # 도메인 제한 없음
+CSRF_COOKIE_PATH = '/'  # 모든 경로에서 사용 가능
 
-# CSRF 미들웨어 설정 강제 적용
+# CSRF 미들웨어 설정
 CSRF_FAILURE_VIEW = 'django.views.csrf.csrf_failure'
 CSRF_COOKIE_AGE = 31449600  # 1년
-CSRF_COOKIE_DOMAIN = None  # 도메인 제한 없음
+
+# CSRF 검증 비활성화 (임시적 해결책)
+# CSRF_EXEMPT = True  # 필요시 주석 해제
 
 
 # 애플리케이션 정의

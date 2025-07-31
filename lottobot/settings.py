@@ -92,7 +92,7 @@ TEMPLATES = [
 ]
 
 # WSGI 설정
-WSGI_APPLICATION = "Lottobot.wsgi.application"
+WSGI_APPLICATION = "lottobot.wsgi.application"
 
 # 데이터베이스 설정
 DATABASES = {

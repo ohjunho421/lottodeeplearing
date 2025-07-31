@@ -15,10 +15,10 @@ from django.apps import apps
 
 urlpatterns = [
     path('admin/', admin.site.urls),
-    # Root URL redirects to login
-    path('', RedirectView.as_view(url='/login/', permanent=False), name='home'),
     # Health check endpoint for Railway
-    path('health/', views.health_check, name='health_check'),
+    path('', views.health_check, name='health_check'),
+    # Login redirect
+    path('home/', RedirectView.as_view(url='/login/', permanent=False), name='home'),
     # 로그인/로그아웃/회원가입 URL
     path('login/', auth_views.LoginView.as_view(template_name='registration/login.html'), name='login'),
     path('logout/', auth_views.LogoutView.as_view(next_page='login'), name='logout'),

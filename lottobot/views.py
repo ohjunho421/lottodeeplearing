@@ -29,9 +29,18 @@ def custom_login_view(request):
             messages.error(request, '사용자명과 비밀번호를 모두 입력해주세요.')
     
     # GET 요청이거나 로그인 실패 시 로그인 페이지 렌더링
-    return render(request, 'registration/login.html', {
-        'no_csrf': True  # 템플릿에서 CSRF 토큰을 렌더링하지 않도록 플래그 설정
-    })
+    from django.template.loader import render_to_string
+    from django.template import Context, RequestContext
+    
+    # CSRF 토큰 없이 템플릿 렌더링
+    context = {
+        'messages': messages.get_messages(request),
+        'no_csrf': True
+    }
+    
+    # RequestContext 대신 일반 Context 사용으로 CSRF 토큰 생성 방지
+    html_content = render_to_string('registration/login.html', context)
+    return HttpResponse(html_content)
 
 def register_view(request):
     if request.method == 'POST':

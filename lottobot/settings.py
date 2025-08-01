@@ -45,20 +45,20 @@ import logging
 logger = logging.getLogger(__name__)
 logger.info(f"CSRF_TRUSTED_ORIGINS loaded: {CSRF_TRUSTED_ORIGINS}")
 
-# CSRF 완전 비활성화 (긴급 해결책)
-CSRF_COOKIE_NAME = None  # CSRF 쿠키 완전 비활성화
+# CSRF 설정 수정 - 쿠키 설정 문제 해결
+CSRF_COOKIE_NAME = 'csrftoken'  # CSRF 쿠키 이름 복원
 CSRF_USE_SESSIONS = False
-CSRF_COOKIE_SECURE = False
-CSRF_COOKIE_HTTPONLY = False
-CSRF_COOKIE_SAMESITE = None
-CSRF_COOKIE_DOMAIN = None
+CSRF_COOKIE_SECURE = False  # HTTPS 요구 비활성화
+CSRF_COOKIE_HTTPONLY = False  # JavaScript 접근 허용
+CSRF_COOKIE_SAMESITE = None  # SameSite 제한 없음
+CSRF_COOKIE_DOMAIN = None  # 도메인 제한 없음
 CSRF_COOKIE_PATH = '/'
-CSRF_COOKIE_AGE = None
+CSRF_COOKIE_AGE = 31449600  # 1년
 
-# CSRF 검증 완전 비활성화
-CSRF_FAILURE_VIEW = None
+# CSRF 검증 설정
+CSRF_FAILURE_VIEW = 'django.views.csrf.csrf_failure'
 
-# CSRF 관련 모든 설정 비활성화
+# CSRF 관련 환경변수
 import os
 os.environ['DJANGO_CSRF_DISABLED'] = 'True'
 

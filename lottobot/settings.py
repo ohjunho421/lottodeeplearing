@@ -45,21 +45,22 @@ import logging
 logger = logging.getLogger(__name__)
 logger.info(f"CSRF_TRUSTED_ORIGINS loaded: {CSRF_TRUSTED_ORIGINS}")
 
-# CSRF 추가 설정 (Railway 배포용 - 최대한 관대한 설정)
-CSRF_COOKIE_SECURE = False  # HTTPS 요구 비활성화
-CSRF_COOKIE_HTTPONLY = False  # JavaScript 접근 허용
-CSRF_USE_SESSIONS = False  # 세션 대신 쿠키 사용
-CSRF_COOKIE_SAMESITE = None  # SameSite 정책 비활성화
-CSRF_COOKIE_NAME = 'csrftoken'  # 명시적 쿠키 이름
-CSRF_COOKIE_DOMAIN = None  # 도메인 제한 없음
-CSRF_COOKIE_PATH = '/'  # 모든 경로에서 사용 가능
+# CSRF 완전 비활성화 (긴급 해결책)
+CSRF_COOKIE_NAME = None  # CSRF 쿠키 완전 비활성화
+CSRF_USE_SESSIONS = False
+CSRF_COOKIE_SECURE = False
+CSRF_COOKIE_HTTPONLY = False
+CSRF_COOKIE_SAMESITE = None
+CSRF_COOKIE_DOMAIN = None
+CSRF_COOKIE_PATH = '/'
+CSRF_COOKIE_AGE = None
 
-# CSRF 미들웨어 설정
-CSRF_FAILURE_VIEW = 'django.views.csrf.csrf_failure'
-CSRF_COOKIE_AGE = 31449600  # 1년
+# CSRF 검증 완전 비활성화
+CSRF_FAILURE_VIEW = None
 
-# CSRF 검증 비활성화 (임시적 해결책)
-# CSRF_EXEMPT = True  # 필요시 주석 해제
+# CSRF 관련 모든 설정 비활성화
+import os
+os.environ['DJANGO_CSRF_DISABLED'] = 'True'
 
 
 # 애플리케이션 정의

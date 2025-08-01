@@ -29,17 +29,59 @@ def custom_login_view(request):
             messages.error(request, '사용자명과 비밀번호를 모두 입력해주세요.')
     
     # GET 요청이거나 로그인 실패 시 로그인 페이지 렌더링
-    from django.template.loader import render_to_string
-    from django.template import Context, RequestContext
+    # 완전히 CSRF 토큰 없는 HTML 직접 반환
+    error_message = ""
+    for message in messages.get_messages(request):
+        if message.tags == 'error':
+            error_message = f'<div class="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 mb-6"><p>{message}</p></div>'
     
-    # CSRF 토큰 없이 템플릿 렌더링
-    context = {
-        'messages': messages.get_messages(request),
-        'no_csrf': True
-    }
-    
-    # RequestContext 대신 일반 Context 사용으로 CSRF 토큰 생성 방지
-    html_content = render_to_string('registration/login.html', context)
+    html_content = f'''
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lotto Bot</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100">
+    <div class="flex items-center justify-center min-h-screen p-6">
+        <div class="w-full max-w-md">
+            <h1 class="text-3xl font-bold text-center mb-8">로또 봇 로그인</h1>
+            <div class="bg-white rounded-lg shadow-lg p-8">
+                {error_message}
+                <form method="post" class="space-y-6">
+                    <div>
+                        <label for="username" class="block text-sm font-medium text-gray-700">아이디</label>
+                        <input type="text" name="username" id="username" required 
+                               class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 p-2 border">
+                    </div>
+                    <div>
+                        <label for="password" class="block text-sm font-medium text-gray-700">비밀번호</label>
+                        <input type="password" name="password" id="password" required 
+                               class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 p-2 border">
+                    </div>
+                    <div>
+                        <button type="submit" 
+                                class="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                            로그인
+                        </button>
+                    </div>
+                </form>
+                <div class="mt-4 text-center">
+                    <p class="text-sm text-gray-600">
+                        계정이 없으신가요? 
+                        <a href="/register/" class="font-medium text-blue-600 hover:text-blue-500">
+                            회원가입
+                        </a>
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
+    '''
     return HttpResponse(html_content)
 
 def register_view(request):

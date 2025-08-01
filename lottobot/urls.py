@@ -23,6 +23,7 @@ urlpatterns = [
     path('home/', RedirectView.as_view(url='/login/', permanent=False), name='home'),
     # 로그인/로그아웃/회원가입 URL - 커스텀 뷰 강제 사용
     path('login/', csrf_exempt(views.custom_login_view), name='login'),  # CSRF 검증이 없는 커스텀 로그인 뷰 강제 사용
+    path('custom-login/', csrf_exempt(views.custom_login_view), name='custom_login'),  # 대체 로그인 URL 테스트용
     path('logout/', auth_views.LogoutView.as_view(next_page='login'), name='logout'),
     path('register/', views.register_view, name='register'),  # 회원가입 URL 추가
     

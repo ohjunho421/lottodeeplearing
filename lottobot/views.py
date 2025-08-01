@@ -14,7 +14,13 @@ from django.contrib.auth.forms import AuthenticationForm
 @csrf_exempt
 def custom_login_view(request):
     """CSRF 검증이 없는 커스텀 로그인 뷰"""
+    # 디버그 로깅 추가
+    import logging
+    logger = logging.getLogger(__name__)
+    logger.info(f"Custom login view called - Method: {request.method}, Path: {request.path}")
+    
     if request.method == 'POST':
+        logger.info(f"POST request received with data: {request.POST}")
         username = request.POST.get('username')
         password = request.POST.get('password')
         
@@ -24,11 +30,14 @@ def custom_login_view(request):
                 login(request, user)
                 return redirect('/main/')  # 로그인 성공 시 메인 페이지로 리다이렉트
             else:
+                logger.info(f"Authentication failed for username: {username}")
                 messages.error(request, '사용자명 또는 비밀번호가 잘못되었습니다.')
         else:
+            logger.info("Missing username or password in POST request")
             messages.error(request, '사용자명과 비밀번호를 모두 입력해주세요.')
     
     # GET 요청이거나 로그인 실패 시 로그인 페이지 렌더링
+    logger.info("Rendering custom login page with direct HTML response")
     # 완전히 CSRF 토큰 없는 HTML 직접 반환
     error_message = ""
     for message in messages.get_messages(request):

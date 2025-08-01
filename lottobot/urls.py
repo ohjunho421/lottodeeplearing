@@ -16,12 +16,13 @@ from django.apps import apps
 
 urlpatterns = [
     path('admin/', admin.site.urls),
-    # Health check endpoint for Railway
+    # Health check endpoints for Railway
     path('', views.health_check, name='health_check'),
+    path('health/', views.health_check, name='health_check_alt'),  # Railway가 /health/로 체크할 수 있도록
     # Login redirect
     path('home/', RedirectView.as_view(url='/login/', permanent=False), name='home'),
-    # 로그인/로그아웃/회원가입 URL
-    path('login/', views.custom_login_view, name='login'),  # CSRF 검증이 없는 커스텀 로그인 뷰 사용
+    # 로그인/로그아웃/회원가입 URL - 커스텀 뷰 강제 사용
+    path('login/', csrf_exempt(views.custom_login_view), name='login'),  # CSRF 검증이 없는 커스텀 로그인 뷰 강제 사용
     path('logout/', auth_views.LogoutView.as_view(next_page='login'), name='logout'),
     path('register/', views.register_view, name='register'),  # 회원가입 URL 추가
     

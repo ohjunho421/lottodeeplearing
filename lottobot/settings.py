@@ -58,9 +58,14 @@ CSRF_COOKIE_AGE = 31449600  # 1년
 # CSRF 검증 설정
 CSRF_FAILURE_VIEW = 'django.views.csrf.csrf_failure'
 
-# CSRF 관련 환경변수
+# CSRF 관련 환경변수 - 완전 비활성화
 import os
 os.environ['DJANGO_CSRF_DISABLED'] = 'True'
+
+# CSRF 검증 완전 비활성화
+CSRF_COOKIE_NAME = None
+CSRF_USE_SESSIONS = False
+CSRF_FAILURE_VIEW = None
 
 
 # 애플리케이션 정의

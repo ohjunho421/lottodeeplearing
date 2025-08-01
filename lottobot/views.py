@@ -14,10 +14,11 @@ from django.contrib.auth.forms import AuthenticationForm
 @csrf_exempt
 def custom_login_view(request):
     """CSRF 검증이 없는 커스텀 로그인 뷰"""
-    # 디버그 로깅 추가
+    # 강력한 디버그 로깅 추가
     import logging
     logger = logging.getLogger(__name__)
-    logger.info(f"Custom login view called - Method: {request.method}, Path: {request.path}")
+    print(f"[CUSTOM LOGIN VIEW] Called - Method: {request.method}, Path: {request.path}")
+    logger.error(f"[CUSTOM LOGIN VIEW] Called - Method: {request.method}, Path: {request.path}")
     
     if request.method == 'POST':
         logger.info(f"POST request received with data: {request.POST}")
@@ -56,7 +57,8 @@ def custom_login_view(request):
 <body class="bg-gray-100">
     <div class="flex items-center justify-center min-h-screen p-6">
         <div class="w-full max-w-md">
-            <h1 class="text-3xl font-bold text-center mb-8">로또 봇 로그인</h1>
+            <h1 class="text-3xl font-bold text-center mb-8">로또 봇 로그인 (CUSTOM VIEW)</h1>
+            <p class="text-center text-sm text-green-600 mb-4">CSRF-Free Custom Login View Active</p>
             <div class="bg-white rounded-lg shadow-lg p-8">
                 {error_message}
                 <form method="post" class="space-y-6">

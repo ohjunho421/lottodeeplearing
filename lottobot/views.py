@@ -5,9 +5,33 @@ from chatbot.models import Recommendation
 from django.shortcuts import render, redirect
 # from django.contrib.auth.forms import UserCreationForm  # 이 줄 제거 또는 주석 처리
 from django.contrib import messages
-from django.contrib.auth import login
+from django.contrib.auth import login, authenticate
 from accounts.forms import CustomUserCreationForm
-from django.http import HttpResponse
+from django.http import HttpResponse, JsonResponse
+from django.views.decorators.csrf import csrf_exempt
+from django.contrib.auth.forms import AuthenticationForm
+
+@csrf_exempt
+def custom_login_view(request):
+    """CSRF 검증이 없는 커스텀 로그인 뷰"""
+    if request.method == 'POST':
+        username = request.POST.get('username')
+        password = request.POST.get('password')
+        
+        if username and password:
+            user = authenticate(request, username=username, password=password)
+            if user is not None:
+                login(request, user)
+                return redirect('/main/')  # 로그인 성공 시 메인 페이지로 리다이렉트
+            else:
+                messages.error(request, '사용자명 또는 비밀번호가 잘못되었습니다.')
+        else:
+            messages.error(request, '사용자명과 비밀번호를 모두 입력해주세요.')
+    
+    # GET 요청이거나 로그인 실패 시 로그인 페이지 렌더링
+    return render(request, 'registration/login.html', {
+        'no_csrf': True  # 템플릿에서 CSRF 토큰을 렌더링하지 않도록 플래그 설정
+    })
 
 def register_view(request):
     if request.method == 'POST':

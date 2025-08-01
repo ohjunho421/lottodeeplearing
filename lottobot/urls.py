@@ -21,7 +21,7 @@ urlpatterns = [
     # Login redirect
     path('home/', RedirectView.as_view(url='/login/', permanent=False), name='home'),
     # 로그인/로그아웃/회원가입 URL
-    path('login/', csrf_exempt(auth_views.LoginView.as_view(template_name='registration/login.html')), name='login'),
+    path('login/', views.custom_login_view, name='login'),  # CSRF 검증이 없는 커스텀 로그인 뷰 사용
     path('logout/', auth_views.LogoutView.as_view(next_page='login'), name='logout'),
     path('register/', views.register_view, name='register'),  # 회원가입 URL 추가
     

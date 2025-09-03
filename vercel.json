@@ -5,7 +5,8 @@
       "src": "lottobot/wsgi.py",
       "use": "@vercel/python",
       "config": {
-        "maxLambdaSize": "50mb"
+        "maxLambdaSize": "50mb",
+        "maxDuration": 30
       }
     }
   ],
@@ -17,10 +18,5 @@
   ],
   "env": {
     "DJANGO_SETTINGS_MODULE": "lottobot.settings"
-  },
-  "functions": {
-    "lottobot/wsgi.py": {
-      "maxDuration": 30
-    }
   }
 }

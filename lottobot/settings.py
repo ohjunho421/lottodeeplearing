@@ -23,49 +23,21 @@ SECRET_KEY = os.getenv("DJANGO_SECRET_KEY", "django-insecure-fallback-key-for-de
 DEBUG = True  # 디버그 모드 활성화 - CSRF 문제 진단용
 ALLOWED_HOSTS = ['*']
 
-# CSRF 설정 - Railway 배포용 (최대한 관대한 설정)
-# 모든 도메인에서 접근 허용
+# CSRF 설정 - Railway 배포용
 CSRF_TRUSTED_ORIGINS = [
-    "*",  # 모든 도메인 허용
-    "http://127.0.0.1:8000", 
-    "http://localhost:3000",
-    "http://127.0.0.1:5000", 
-    "http://localhost:5000",
-    "https://*.vercel.app",
-    "https://lottobot-production.up.railway.app",
     "https://*.up.railway.app",
-    "https://up.railway.app",
-    "http://lottobot-production.up.railway.app",
-    "https://*.railway.app",
-    "http://*.railway.app",
+    "https://*.railway.app", 
+    "https://lottobot-production.up.railway.app",
+    "http://127.0.0.1:8000",
+    "http://localhost:8000",
+    "https://*.vercel.app",
 ]
 
-# CSRF 디버그 로깅
-import logging
-logger = logging.getLogger(__name__)
-logger.info(f"CSRF_TRUSTED_ORIGINS loaded: {CSRF_TRUSTED_ORIGINS}")
-
-# CSRF 설정 수정 - 쿠키 설정 문제 해결
-CSRF_COOKIE_NAME = 'csrftoken'  # CSRF 쿠키 이름 복원
+# CSRF 쿠키 설정
+CSRF_COOKIE_SECURE = False  # Railway에서 HTTPS 강제하지 않음
+CSRF_COOKIE_HTTPONLY = False
+CSRF_COOKIE_SAMESITE = 'Lax'
 CSRF_USE_SESSIONS = False
-CSRF_COOKIE_SECURE = False  # HTTPS 요구 비활성화
-CSRF_COOKIE_HTTPONLY = False  # JavaScript 접근 허용
-CSRF_COOKIE_SAMESITE = None  # SameSite 제한 없음
-CSRF_COOKIE_DOMAIN = None  # 도메인 제한 없음
-CSRF_COOKIE_PATH = '/'
-CSRF_COOKIE_AGE = 31449600  # 1년
-
-# CSRF 검증 설정
-CSRF_FAILURE_VIEW = 'django.views.csrf.csrf_failure'
-
-# CSRF 관련 환경변수 - 완전 비활성화
-import os
-os.environ['DJANGO_CSRF_DISABLED'] = 'True'
-
-# CSRF 검증 완전 비활성화
-CSRF_COOKIE_NAME = None
-CSRF_USE_SESSIONS = False
-CSRF_FAILURE_VIEW = None
 
 
 # 애플리케이션 정의
@@ -99,7 +71,7 @@ MIDDLEWARE = [
     "corsheaders.middleware.CorsMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
-    # "django.middleware.csrf.CsrfViewMiddleware",  # CSRF 미들웨어 임시 비활성화
+    "django.middleware.csrf.CsrfViewMiddleware",  # CSRF 미들웨어 활성화
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",

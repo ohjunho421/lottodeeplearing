@@ -23,6 +23,16 @@ SECRET_KEY = os.getenv("DJANGO_SECRET_KEY", "django-insecure-fallback-key-for-de
 DEBUG = True  # 디버그 모드 활성화 - CSRF 문제 진단용
 ALLOWED_HOSTS = ['*']
 
+# Railway 환경 감지 및 CSRF 비활성화
+# Railway는 RAILWAY_ENVIRONMENT_NAME 또는 PORT 환경변수를 설정함
+IS_RAILWAY = bool(os.getenv('RAILWAY_ENVIRONMENT_NAME') or os.getenv('RAILWAY_PROJECT_ID') or os.getenv('RAILWAY_SERVICE_NAME'))
+DISABLE_CSRF = IS_RAILWAY  # Railway 환경에서는 CSRF 완전 비활성화
+
+# 디버깅용 로깅
+import logging
+logger = logging.getLogger(__name__)
+logger.info(f"Railway detection - IS_RAILWAY: {IS_RAILWAY}, DISABLE_CSRF: {DISABLE_CSRF}")
+
 # CSRF 설정 - Railway 배포용
 CSRF_TRUSTED_ORIGINS = [
     "https://*.up.railway.app",
@@ -34,10 +44,12 @@ CSRF_TRUSTED_ORIGINS = [
 ]
 
 # CSRF 쿠키 설정
-CSRF_COOKIE_SECURE = False  # Railway에서 HTTPS 강제하지 않음
+CSRF_COOKIE_SECURE = True  # Railway는 HTTPS를 사용하므로 True로 설정
 CSRF_COOKIE_HTTPONLY = False
-CSRF_COOKIE_SAMESITE = 'Lax'
+CSRF_COOKIE_SAMESITE = 'None'  # Cross-origin 요청을 위해 None으로 설정
 CSRF_USE_SESSIONS = False
+CSRF_COOKIE_DOMAIN = None  # Railway 도메인에 맞게 자동 설정되도록
+CSRF_FAILURE_VIEW = 'django.views.csrf.csrf_failure'  # CSRF 실패 시 기본 뷰 사용
 
 
 # 애플리케이션 정의
@@ -71,12 +83,18 @@ MIDDLEWARE = [
     "corsheaders.middleware.CorsMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
-    "django.middleware.csrf.CsrfViewMiddleware",  # CSRF 미들웨어 활성화
+]
+
+# CSRF 미들웨어를 조건부로 추가 (Railway 환경에서는 비활성화)
+if not DISABLE_CSRF:
+    MIDDLEWARE.append("django.middleware.csrf.CsrfViewMiddleware")
+
+MIDDLEWARE.extend([
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
     "chatbot.middleware.SubscriptionMiddleware",  # 구독 확인 미들웨어 추가
-]
+])
 
 # URL 설정
 ROOT_URLCONF = "lottobot.urls"
